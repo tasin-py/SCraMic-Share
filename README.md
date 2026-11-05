@@ -12,11 +12,28 @@ Works with iPhone and Android, over WiFi or USB. Nothing to install on the phone
 [![Platform: Windows 10 and 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4)](#installation)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-[**Download for Windows**](https://github.com/tasin-py/SCraMic-Share/releases/latest) &nbsp;•&nbsp; [Features](#features) &nbsp;•&nbsp; [Getting started](#getting-started) &nbsp;•&nbsp; [Privacy](#privacy-and-security)
+[**Download for Windows**](https://github.com/tasin-py/SCraMic-Share/releases/latest) &nbsp;•&nbsp; [Screenshots](#screenshots) &nbsp;•&nbsp; [Features](#features) &nbsp;•&nbsp; [Getting started](#getting-started) &nbsp;•&nbsp; [Privacy](#privacy-and-security)
 
 </div>
 
 ---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/pc-home.png" alt="PC app home screen with Wireless and Wired options"><br><sub>Choose how to connect</sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/pc-wireless.png" alt="PC app showing a QR code to scan with the phone"><br><sub>Scan the QR code with your phone</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/phone-menu.png" alt="Phone feature menu with camera, streamer, screen, microphone, teacher and PC control options"><br><sub>Pick a feature on your phone</sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/phone-screen.png" alt="Phone screen share page with sound and control options"><br><sub>Share your phone's screen</sub></td>
+    <td width="33%" align="center"><img src="docs/screenshots/pc-settings.png" alt="PC settings with ScramicShare Cam and Mic install options"><br><sub>Add ScramicShare Cam and Mic</sub></td>
+  </tr>
+</table>
 
 ## Features
 
