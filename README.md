@@ -29,9 +29,9 @@ Works with iPhone and Android, over WiFi or USB. Nothing to install on the phone
 
 <table>
   <tr>
-    <td width="33%" align="center"><img src="docs/screenshots/phone-menu.png" alt="Phone feature menu with camera, streamer, screen, microphone, teacher and PC control options"><br><sub>Pick a feature on your phone</sub></td>
-    <td width="33%" align="center"><img src="docs/screenshots/phone-screen.png" alt="Phone screen share page with sound and control options"><br><sub>Share your phone's screen</sub></td>
-    <td width="33%" align="center"><img src="docs/screenshots/pc-settings.png" alt="PC settings with ScramicShare Cam and Mic install options"><br><sub>Add ScramicShare Cam and Mic</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/phone-menu.png" alt="Phone feature menu with camera, streamer, screen, microphone, teacher and PC control options"><br><sub>Pick a feature on your phone</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/phone-screen.png" alt="Phone screen share page with sound and control options"><br><sub>Share your phone's screen</sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/pc-settings.png" alt="PC settings with ScramicShare Cam and Mic install options"><br><sub>Add ScramicShare Cam and Mic</sub></td>
   </tr>
 </table>
 
