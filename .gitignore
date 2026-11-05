@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# build output
+build/
+dist/
+*.ico.tmp
+scramicshare.ico
+
+# local tools
+.claude/
+graphify-out/

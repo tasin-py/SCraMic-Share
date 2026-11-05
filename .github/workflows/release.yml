@@ -1,0 +1,71 @@
+# Pushing a tag like v1.0.0 builds SCraMicShare-Setup-1.0.0.exe and makes a draft GitHub release of it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: The tag must match the app's version
+        id: version
+        shell: pwsh
+        run: |
+          $version = python -c "import updates; print(updates.VERSION)"
+          if ("v$version" -ne "$env:GITHUB_REF_NAME") {
+            Write-Error "Tag $env:GITHUB_REF_NAME doesn't match VERSION $version in updates.py"
+            exit 1
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install what the build needs
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt pyinstaller
+
+      - name: Build the app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          python installer/make_icon.py build/scramicshare.ico
+          pyinstaller --noconfirm installer/scramicshare.spec
+
+      - name: Test the finished app
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "check.txt"
+          $p = Start-Process dist/SCraMicShare/SCraMicShare.exe -ArgumentList "--check", "`"$report`"" -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); Write-Error "The self-check didn't finish"; exit 1 }
+          if (-not (Test-Path $report)) { Write-Error "The self-check wrote no report (exit code $($p.ExitCode))"; exit 1 }
+          Get-Content $report
+          if ((Get-Content $report -Raw).Trim() -ne "OK") { exit 1 }
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = (Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" | Select-Object -First 1).FullName }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" installer/scramicshare.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # A draft: only you can see it until you've tried the installer and clicked Publish.
+      - name: Create the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = "dist/SCraMicShare-Setup-${{ steps.version.outputs.version }}.exe"
+          $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
+          $notes = "Download **SCraMicShare-Setup-${{ steps.version.outputs.version }}.exe** below and run it.`n`nWindows may say it protected your PC, because the app isn't code-signed yet. Click **More info**, then **Run anyway**.`n`nSHA-256: ``$hash``"
+          gh release create "$env:GITHUB_REF_NAME" $setup --draft --title "SCraMic Share ${{ steps.version.outputs.version }}" --notes "$notes"

@@ -1,0 +1,26 @@
+SCraMic Share
+Copyright 2026 Tasin's problem
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Teacher mode includes code from InkCast
+  https://github.com/ssfshad/inkcast
+  Copyright ssfshad, licensed under the Apache License, Version 2.0
+  (full text in LICENSE-InkCast).
+
+Files derived from InkCast and changed for SCraMic Share:
+  teacher.py               - ink overlay, item model and drawing (from inkcast.py),
+                             plus new screen streaming / PC control handling
+  web/phone/teacher.html   - the drawing page (from inkcast.py's tablet page),
+                             restyled, new toolbar layout, pinch zoom, Control PC
+
+Tools SCraMic Share downloads when first needed (not bundled; pinned ones are checked against a SHA-256):
+  UxPlay for Windows (AirPlay receiver)   https://github.com/leapbtw/uxplay-windows   GPL-3.0, run as a separate program
+  scrcpy (Android screen mirroring)       https://github.com/Genymobile/scrcpy        Apache-2.0, run as a separate program
+  Android SDK Platform-Tools (adb)        https://developer.android.com/tools/releases/platform-tools  Google's license
+  UnityCapture (virtual camera filter)    https://github.com/schellingb/UnityCapture  MIT
+  VB-CABLE (virtual audio cable)          https://vb-audio.com/Cable/                 Donationware by VB-Audio
+
+Included in the installer:
+  Qt for Python (PySide6), including Qt WebEngine  https://www.qt.io/qt-for-python  LGPL-3.0, as separate replaceable libraries
+  Python                                           https://www.python.org           PSF License
+  aiohttp (Apache-2.0), cryptography (Apache-2.0 / BSD), mss (MIT), NumPy (BSD), Pillow (MIT-CMU), qrcode (BSD)

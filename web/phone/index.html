@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#191919">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SCraMic Share</title>
+<link rel="icon" href="/assets/logo.svg">
+<link rel="apple-touch-icon" href="/assets/logo.svg">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/static/phone.css">
+</head>
+<body>
+
+<!-- connecting / waiting for PC -->
+<section id="sConnect" class="screen center">
+  <div class="brand big"><img src="/assets/logo.svg" alt=""><b>SCraMic <span>Share</span></b></div>
+  <p class="status"><span class="dot wait"></span><span id="connectText">Connecting to your PC…</span></p>
+</section>
+
+<!-- wired / wireless -->
+<section id="sChoose" class="screen hidden">
+  <header class="bar">
+    <div class="brand"><img src="/assets/logo.svg" alt=""><b>SCraMic <span>Share</span></b></div>
+    <span class="live-tag"><span class="dot live"></span>PC</span>
+  </header>
+  <div class="body">
+    <h1>Connect with</h1>
+    <button class="card" id="pickWireless">
+      <span class="card-ic"><i data-ic="wifi"></i></span>
+      <span class="card-t"><b>Wireless</b><span>Everything goes over WiFi</span></span>
+    </button>
+    <button class="card" id="pickWired">
+      <span class="card-ic"><i data-ic="wire"></i></span>
+      <span class="card-t"><b>Wired</b><span>USB cable, lowest delay</span></span>
+    </button>
+    <p class="note-small hidden" id="iosWiredNote">On iPhone we recommend Wireless. It is much more stable than Wired.</p>
+  </div>
+</section>
+
+<!-- wired placeholder -->
+<section id="sWired" class="screen hidden">
+  <header class="bar">
+    <button class="iconbtn" data-go="sChoose"><i data-ic="back"></i></button>
+    <b class="bar-title">Wired mode</b><span style="width:44px"></span>
+  </header>
+  <div class="body">
+    <h2 class="steps-title">Connect with a cable</h2>
+    <p class="muted">This page was opened over WiFi. Do this once, and SCraMic Share opens over the cable instead.</p>
+    <div id="wiredSteps">
+      <div class="steps-card" id="stepsAndroid">
+        <b>Android</b>
+        <ol>
+          <li>Open <b>Settings → About phone</b> and tap <b>Build number</b> 7 times.</li>
+          <li>Open <b>Developer options</b> and turn on <b>USB debugging</b>.</li>
+          <li>Plug the phone into your PC with a USB cable.</li>
+          <li>On the PC, open SCraMic Share and click <b>Wired</b>.</li>
+          <li>Tap <b>Allow</b> on this phone. SCraMic Share opens here by itself.</li>
+        </ol>
+      </div>
+      <div class="steps-card" id="stepsIphone">
+        <b>iPhone</b>
+        <p class="note">We recommend Wireless on iPhone. It is much more stable than Wired.</p>
+        <ol>
+          <li>Open <b>Settings → Personal Hotspot</b> and turn on <b>Allow Others to Join</b>.</li>
+          <li>Plug the iPhone into your PC with the cable. Tap <b>Trust</b> if asked.</li>
+          <li>On the PC, open SCraMic Share, click <b>Wired</b>, and scan the <b>iPhone</b> QR code.</li>
+        </ol>
+        <p class="note">Personal Hotspot needs Cellular Data turned on. SCraMic Share itself uses no data over the cable. If your carrier blocks the hotspot, use Wireless instead.</p>
+      </div>
+    </div>
+    <button class="btn primary wide" id="wiredToWireless"><i data-ic="wifi"></i>Use Wireless instead</button>
+  </div>
+</section>
+
+<!-- feature menu -->
+<section id="sMenu" class="screen hidden">
+  <header class="bar">
+    <button class="iconbtn" data-go="sChoose"><i data-ic="back"></i></button>
+    <b class="bar-title" id="menuTitle">Wireless</b>
+    <button class="iconbtn danger" id="disconnectAll" title="Disconnect"><i data-ic="power"></i></button>
+  </header>
+  <div class="body">
+    <div class="grid">
+      <button class="tile" data-f="camera"><span class="card-ic"><i data-ic="camera"></i></span><b>Camera share</b><span>Phone camera on your PC</span></button>
+      <button class="tile" data-f="streamer"><span class="card-ic"><i data-ic="streamer"></i></span><b>Streamer mode</b><span>Up to Full HD 60 fps<br>(If device camera allows)</span></button>
+      <button class="tile" data-f="screen"><span class="card-ic"><i data-ic="screen"></i></span><b>Screen share</b><span>Mirror this phone</span></button>
+      <button class="tile" data-f="mic"><span class="card-ic"><i data-ic="mic"></i></span><b>Microphone</b><span>Phone mic on your PC</span></button>
+      <button class="tile" data-f="teacher"><span class="card-ic"><i data-ic="teacher"></i></span><b>Teacher mode</b><span>Draw on your PC screen</span></button>
+      <button class="tile" data-f="control"><span class="card-ic"><i data-ic="pcControl"></i></span><b>PC Control</b><span>Use your PC by touch</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- camera -->
+<section id="sCamera" class="screen hidden cam">
+  <div class="preview" id="preview"><video id="camVideo" autoplay playsinline muted></video></div>
+  <button class="iconbtn cam-back" id="camBack" aria-label="Back"><i data-ic="back"></i></button>
+  <div class="cam-top">
+    <span class="live-tag"><span class="dot live"></span>Live on PC</span>
+    <button class="live-tag hidden" id="camQual"></button>
+  </div>
+  <div class="q-sheet hidden" id="qSheet">
+    <b>Resolution</b><div class="q-chips" id="qRes"></div>
+    <b>Frames per second</b><div class="q-chips" id="qFps"></div>
+    <p class="note-small" id="qNote"></p>
+  </div>
+  <div class="cam-bar">
+    <button class="round" id="camSwitch"><i data-ic="switchCam"></i><span>Switch</span></button>
+    <button class="round" id="camRotate"><i data-ic="rotate"></i><span>Rotate</span></button>
+    <button class="round" id="camMic"><i data-ic="micOff"></i><span>Mic off</span></button>
+    <button class="round on hidden" id="camVideoOn"><i data-ic="videoOff"></i><span>Video on</span></button>
+    <button class="round" id="camDark"><i data-ic="moon"></i><span>Screen off</span></button>
+    <button class="round stop" id="camStop"><i data-ic="power"></i><span>Stop</span></button>
+  </div>
+</section>
+
+<!-- microphone -->
+<section id="sMic" class="screen hidden">
+  <header class="bar">
+    <button class="iconbtn" id="micBack" aria-label="Back"><i data-ic="back"></i></button>
+    <b class="bar-title">Microphone</b>
+    <span class="live-tag"><span class="dot live"></span>Live</span>
+  </header>
+  <div class="mic-stage"><canvas id="micBubble"></canvas></div>
+  <p class="muted center-text" id="micHint">Your PC is hearing this phone</p>
+  <div class="mic-bar">
+    <button class="round big" id="micMute"><i data-ic="mic"></i><span>Mute</span></button>
+    <button class="round big" id="micDark"><i data-ic="moon"></i><span>Screen off</span></button>
+    <button class="round big stop" id="micStop"><i data-ic="power"></i><span>Stop</span></button>
+  </div>
+</section>
+
+<!-- screen share: the phone's own mirroring, the PC is the receiver -->
+<section id="sScreen" class="screen hidden">
+  <header class="bar">
+    <button class="iconbtn" id="scrBack" aria-label="Back"><i data-ic="back"></i></button>
+    <b class="bar-title">Screen share</b>
+    <span class="live-tag"><span class="dot live"></span>PC</span>
+  </header>
+  <div class="body">
+    <p class="status-line"><span class="dot wait" id="scrDot"></span><span id="scrState">Your PC is getting ready…</span></p>
+    <div class="steps-card" id="scrSteps"></div>
+    <div class="toggle-row">
+      <div><b>Phone sound on PC</b><span>Play this phone's sound (videos, music) on the PC</span></div>
+      <button class="switch on" id="scrAudio" aria-label="Phone sound on PC"><i></i></button>
+    </div>
+    <div class="toggle-row hidden" id="scrControlRow">
+      <div><b>Control from PC</b><span>Off: the PC can only watch this phone</span></div>
+      <button class="switch on" id="scrControl" aria-label="Control from PC"><i></i></button>
+    </div>
+    <div class="toggle-row hidden" id="scrRotAutoRow">
+      <div><b>Auto rotate</b><span>The PC window follows this phone</span></div>
+      <button class="switch" id="scrRotAuto" aria-label="Auto rotate"><i></i></button>
+    </div>
+    <div class="toggle-row hidden" id="scrRotRow">
+      <div><b>Turn the picture</b><span id="scrRotNow">0°</span></div>
+      <button class="btn small" id="scrRotLeft">Left</button>
+      <button class="btn small" id="scrRotRight">Right</button>
+    </div>
+    <p class="note-small" id="scrNote"></p>
+    <button class="btn danger wide" id="scrStop"><i data-ic="power"></i>Stop screen share</button>
+  </div>
+</section>
+
+<!-- disconnected -->
+<section id="sGone" class="screen center hidden">
+  <span class="card-ic big"><i data-ic="power"></i></span>
+  <h2 id="goneTitle">Disconnected</h2>
+  <p class="muted" id="goneText">This phone is no longer connected to your PC.</p>
+  <button class="btn primary wide" id="reconnect">Connect again</button>
+</section>
+
+<!-- black "screen off" cover -->
+<div id="dark" class="hidden">
+  <button id="wake" aria-label="Hold to turn the screen on">
+    <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" class="track"/><circle cx="50" cy="50" r="46" class="ring" id="wakeRing"/></svg>
+    <span>Hold</span>
+  </button>
+  <button class="round big hidden" id="darkMute"></button>
+  <button class="round big hidden" id="darkVideo"></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/assets/icons.js"></script>
+<script src="/assets/bubble.js"></script>
+<script src="/static/wiredmedia.js"></script>
+<script src="/static/phone.js"></script>
+</body>
+</html>

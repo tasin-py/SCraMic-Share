@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#191919">
+<title>SCraMic Share - PC Control</title>
+<link rel="stylesheet" href="/assets/base.css">
+<style>
+html, body { touch-action: none; -webkit-touch-callout: none; }
+#panel {
+  position: fixed; z-index: 2; background: var(--bg); display: flex; align-items: center; gap: 4px;
+  scrollbar-width: none;
+}
+#panel::-webkit-scrollbar { display: none; }
+body.land #panel { right: 0; top: 0; bottom: 0; width: 64px; flex-direction: column; padding: 8px env(safe-area-inset-right) 8px 0; overflow-y: auto; touch-action: pan-y; box-sizing: content-box; }
+body.port #panel { left: 0; right: 0; bottom: 0; height: 60px; flex-direction: row; padding: 0 8px env(safe-area-inset-bottom); overflow-x: auto; touch-action: pan-x; box-sizing: content-box; }
+.k {
+  flex: none; width: 52px; height: 44px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); font-size: 12px; font-weight: 650; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+.k .ic { width: 20px; height: 20px; }
+.k small { font-size: 8.5px; font-weight: 600; color: var(--muted); }
+.k:active { background: #3a3a3a; }
+.k.on { background: var(--accent); color: #1a0d03; border-color: transparent; }
+.k.on small { color: #1a0d03; }
+.k.exit { color: #ff8a8b; background: rgba(255,77,79,.14); border-color: rgba(255,77,79,.3); }
+.gap { flex: none; background: #333; }
+body.land .gap { width: 36px; height: 1px; margin: 3px 0; }
+body.port .gap { width: 1px; height: 30px; margin: 0 3px; }
+.arrows { flex: none; display: grid; grid-template-columns: repeat(3, 17px); grid-template-rows: repeat(2, 21px); gap: 1px; }
+.arrows button { background: var(--panel-2); border-radius: 5px; font-size: 10px; color: var(--text); padding: 0; }
+.arrows button:active { background: #3a3a3a; }
+.arrows .u { grid-column: 2; grid-row: 1; } .arrows .l { grid-column: 1; grid-row: 2; }
+.arrows .d { grid-column: 2; grid-row: 2; } .arrows .r { grid-column: 3; grid-row: 2; }
+#led { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); flex: none; margin: 6px; }
+#led.ok { background: var(--ok); }
+
+#area { position: fixed; overflow: hidden; touch-action: none; left: 0; top: 0; }
+#stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #101010; box-shadow: 0 0 0 1px rgba(255,255,255,.07); }
+#bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; visibility: hidden; pointer-events: none; }
+#hit { position: absolute; inset: 0; }
+#cursor { position: absolute; width: 0; height: 0; pointer-events: none; z-index: 1; }
+#cursor svg { position: absolute; left: -1px; top: -1px; width: 14px; height: 20px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.7)); }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+
+/* scroll slider: drag up or down from the middle; further = faster */
+#scroll {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 40px; height: min(62%, 300px);
+  border-radius: 20px; background: rgba(20,20,20,.62); border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 3; touch-action: none;
+}
+#scroll::before, #scroll::after { position: absolute; left: 0; right: 0; text-align: center; color: #777; font-size: 11px; }
+#scroll::before { content: '▲'; top: 6px; } #scroll::after { content: '▼'; bottom: 6px; }
+#knob {
+  position: absolute; left: 4px; top: 50%; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: transform .18s;
+}
+#scroll.drag #knob { transition: none; }
+#scrollLbl { position: absolute; right: 52px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #aaa; pointer-events: none; display: none; }
+
+.chip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: none; align-items: center; gap: 8px; z-index: 3;
+  padding: 7px 12px; border-radius: 99px; background: rgba(20,20,20,.82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.1); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.chip.show { display: flex; }
+.chip button { background: var(--panel-2); padding: 4px 10px; border-radius: 99px; font-size: 12px; }
+#tip { top: auto; bottom: 12px; color: #cfcfcf; font-weight: 500; }
+
+/* view only: the phone watches, nothing it does reaches the PC */
+body.viewonly .mod, body.viewonly [data-key], body.viewonly #kbBtn, body.viewonly #scrollBtn { opacity: .3; pointer-events: none; }
+body.viewonly #scroll { display: none; }
+/* the scroll slider only shows when its sidebar button is on */
+body:not(.scroll-on) #scroll { display: none; }
+
+/* Hide UI: only the PC's screen, plus these three small buttons */
+body.clean #panel, body.clean #scroll, body.clean .chip { display: none !important; }
+#clean { position: fixed; z-index: 4; display: none; gap: 8px; opacity: .55;
+  top: calc(env(safe-area-inset-top) + 8px); right: calc(env(safe-area-inset-right) + 8px); }
+body.clean #clean { display: flex; }
+#clean button { width: 42px; height: 42px; padding: 11px; border-radius: 50%; color: #eee;
+  background: rgba(20,20,20,.7); border: 1px solid rgba(255,255,255,.14); }
+#clean button .ic { width: 100%; height: 100%; display: block; }
+#clean button.on { background: var(--accent); color: #1a0d03; border-color: transparent; }
+
+#kb { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+</style>
+</head>
+<body class="land">
+
+<div id="area">
+  <div id="stage">
+    <img id="bg" alt="">
+    <div id="hit"></div>
+    <div id="cursor"><svg viewBox="0 0 14 20"><path d="M1 1v15.5l4-3.6 2.6 5.8 2.5-1.1-2.6-5.7H13z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg></div>
+    <div class="msg" id="msg">Connecting to your PC…</div>
+  </div>
+  <div id="scroll" title="Scroll" data-nozoom><div id="knob"></div></div>
+  <div class="chip" id="zoomChip" data-nozoom><span id="zoomTxt">100%</span><button id="zoomReset">Reset</button></div>
+  <div class="chip" id="tip">Tap = click · drag = drag · hold = right-click · pinch = zoom</div>
+</div>
+
+<div id="clean">
+  <button id="cFull" aria-label="Full screen"><i data-ic="fullscreen"></i></button>
+  <button id="cCtl" class="on" aria-label="PC control on or off"><i data-ic="pcControl"></i></button>
+  <button id="cShow" aria-label="Show the controls"><i data-ic="eye"></i></button>
+</div>
+
+<div id="panel">
+  <button class="k on" id="ctlBtn"><i data-ic="pcControl"></i><small>Control</small></button>
+  <button class="k" id="hideBtn"><i data-ic="eyeOff"></i><small>Hide UI</small></button>
+  <div class="gap"></div>
+  <button class="k" id="kbBtn"><i data-ic="kbd"></i><small>Keys</small></button>
+  <button class="k" id="scrollBtn" aria-pressed="false"><i data-ic="scroll"></i><small>Scroll</small></button>
+  <div class="gap"></div>
+  <button class="k mod" data-mod="win">Win</button>
+  <button class="k mod" data-mod="ctrl">Ctrl</button>
+  <button class="k mod" data-mod="alt">Alt</button>
+  <button class="k mod" data-mod="shift">Shift</button>
+  <div class="gap"></div>
+  <button class="k" data-key="esc">Esc</button>
+  <button class="k" data-key="tab">Tab</button>
+  <button class="k" data-key="enter">Enter</button>
+  <button class="k" data-key="backspace">⌫</button>
+  <button class="k" data-key="delete">Del</button>
+  <div class="arrows">
+    <button class="u" data-key="up">▲</button><button class="l" data-key="left">◀</button>
+    <button class="d" data-key="down">▼</button><button class="r" data-key="right">▶</button>
+  </div>
+  <div class="gap"></div>
+  <button class="k exit" id="exitB"><i data-ic="power"></i><small>Exit</small></button>
+  <span id="led"></span>
+</div>
+
+<textarea id="kb" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+<div class="toast" id="toast"></div>
+
+<script src="/assets/icons.js"></script>
+<script src="/static/live.js"></script>
+<script>
+'use strict';
+ICONS.kbd = '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>';
+ICONS.scroll = '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/>';
+ICONS.fullscreen ='<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+ICONS.eye = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>';
+ICONS.eyeOff = '<path d="M3 3l18 18M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a10.6 10.6 0 0 0 5-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+hydrateIcons();
+const $ = id => document.getElementById(id);
+const area = $('area'), stage = $('stage'), bg = $('bg'), hit = $('hit');
+let aspect = 16 / 9, sw = 1, sh = 1;
+
+let toastT;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2400); }
+
+// ---------------------------------------------------------------- connection
+const K = new URLSearchParams(location.search).get('k') || '';
+let ws = null, connected = false, waiting = false, lastReq = 0, frameUrl = null, canControl = true;
+function send(m) { if (connected) try { ws.send(JSON.stringify(m)); } catch (e) {} }
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live?m=control&k=' + encodeURIComponent(K));
+  ws.binaryType = 'blob';
+  ws.onopen = () => { connected = true; $('led').classList.add('ok'); send({ t: 'ctl', on: canControl }); reqFrame(); };
+  ws.onclose = () => { connected = false; waiting = false; $('led').classList.remove('ok'); setTimeout(connect, 1000); };
+  ws.onmessage = ev => {
+    if (typeof ev.data !== 'string') {
+      const u = URL.createObjectURL(ev.data); bg.src = u;
+      if (frameUrl) URL.revokeObjectURL(frameUrl); frameUrl = u; return;
+    }
+    const m = JSON.parse(ev.data);
+    if (m.t === 'hello') { aspect = m.aspect || aspect; layout(); }
+    else if (m.t === 'cur') { const c = $('cursor'); c.style.left = (m.x * 100) + '%'; c.style.top = (m.y * 100) + '%'; }
+  };
+}
+function reqFrame() {
+  if (!connected || waiting) return;
+  waiting = true;
+  const wait = Math.max(0, 45 - (performance.now() - lastReq));
+  setTimeout(() => {
+    lastReq = performance.now();
+    const z = zoom.z, want = Math.round(sw * (devicePixelRatio || 1) * z);
+    const w = Math.max(960, Math.min(z > 1.01 ? 2560 : 1600, want));
+    try { ws.send(JSON.stringify({ t: 'f', w, q: 66 })); } catch (e) { waiting = false; }
+  }, wait);
+}
+setInterval(() => {   // a frame that never arrived must not freeze the view
+  if (waiting && performance.now() - lastReq > 1500) { waiting = false; reqFrame(); }
+}, 500);
+bg.onload = () => { bg.style.visibility = 'visible'; $('msg').style.display = 'none'; waiting = false; reqFrame(); };
+bg.onerror = () => { waiting = false; reqFrame(); };
+
+// ---------------------------------------------------------------- layout + zoom
+const zoom = createZoom(area, stage, {
+  target: area,
+  onStart: () => { tm.cancel(); pid = null; },
+  onChange: z => { $('zoomTxt').textContent = Math.round(z * 100) + '%'; $('zoomChip').classList.toggle('show', z > 1.01); },
+  onEnd: () => reqFrame(),
+});
+$('zoomReset').onclick = () => zoom.reset();
+
+function layout() {
+  const land = innerWidth >= innerHeight;
+  document.body.classList.toggle('land', land);
+  document.body.classList.toggle('port', !land);
+  const p = $('panel');
+  const R = land ? p.offsetWidth : 0, B = land ? 0 : p.offsetHeight;
+  const W = Math.max(1, innerWidth - R), H = Math.max(1, innerHeight - B);
+  Object.assign(area.style, { width: W + 'px', height: H + 'px' });
+  let w = W, h = W / aspect; if (h > H) { h = H; w = H * aspect; }
+  sw = w; sh = h;
+  Object.assign(stage.style, { width: w + 'px', height: h + 'px' });
+  zoom.fit(W, H, w, h);
+}
+addEventListener('resize', () => requestAnimationFrame(layout));
+
+// ---------------------------------------------------------------- touch = mouse
+function norm(e) {
+  const r = hit.getBoundingClientRect();
+  return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+}
+const tm = createTouchMouse(m => { send(m); afterAction(); }, norm);
+let pid = null, pidType = null;
+hit.addEventListener('pointerdown', e => {
+  if (!canControl) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (pid !== null) {
+    if (e.isPrimary && e.pointerType === pidType) { tm.cancel(); pid = null; }   // the old touch was lost
+    else return;
+  }
+  e.preventDefault(); pid = e.pointerId; pidType = e.pointerType;
+  try { hit.setPointerCapture(pid); } catch (_) {}
+  tm.down(e);
+  $('tip').classList.remove('show');
+});
+hit.addEventListener('pointermove', e => {
+  if (e.pointerId === pid) tm.move(e);
+  else if (canControl && pid === null && e.pointerType === 'pen') { const p = norm(e); send({ t: 'm', a: 'move', x: p[0], y: p[1] }); }
+});
+function lift(e) { if (e.pointerId !== pid) return; tm.up(e); pid = null; reqFrame(); }
+hit.addEventListener('pointerup', lift);
+hit.addEventListener('pointercancel', lift);
+
+// ---------------------------------------------------------------- modifier keys (tap = hold down, tap again = let go)
+const mods = {};
+document.querySelectorAll('.mod').forEach(b => b.onclick = () => {
+  const m = b.dataset.mod;
+  mods[m] = !mods[m];
+  send({ t: 'key', k: m, a: mods[m] ? 'down' : 'up' });
+  b.classList.toggle('on', mods[m]);
+});
+const anyMod = () => Object.values(mods).some(Boolean);
+function afterAction() {}   // modifiers stay held until you tap them again
+
+document.querySelectorAll('[data-key]').forEach(b => b.onclick = () => send({ t: 'key', k: b.dataset.key }));
+
+// ---------------------------------------------------------------- phone keyboard -> PC typing
+const kb = $('kb'), PREFIX = '>>';
+let last = PREFIX;
+kb.value = PREFIX;
+$('kbBtn').onclick = () => {
+  if (document.activeElement === kb) { kb.blur(); return; }
+  kb.value = last = PREFIX; kb.focus(); kb.setSelectionRange(kb.value.length, kb.value.length);
+};
+kb.addEventListener('focus', () => $('kbBtn').classList.add('on'));
+kb.addEventListener('blur', () => $('kbBtn').classList.remove('on'));
+let composing = false;
+kb.addEventListener('compositionstart', () => composing = true);
+kb.addEventListener('compositionend', () => { composing = false; sync(); });
+kb.addEventListener('input', sync);
+// Whatever changed in the box (typing, autocorrect, backspace) is replayed on the PC.
+function sync() {
+  const now = kb.value;
+  let i = 0;
+  while (i < last.length && i < now.length && last[i] === now[i]) i++;
+  const back = last.length - i, add = now.slice(i);
+  for (let n = 0; n < back; n++) send({ t: 'key', k: 'backspace' });
+  if (add) {
+    if (anyMod() && add.length === 1) send({ t: 'char', s: add });   // Ctrl+C, Win+D ...
+    else send({ t: 'text', s: add });
+  }
+  last = now;
+  if (!composing && (now.length > 200 || !now.startsWith(PREFIX))) {
+    kb.value = last = PREFIX + (now.startsWith(PREFIX) ? '' : '');
+  }
+}
+kb.addEventListener('keydown', e => {   // hardware keys / iOS keys that don't change the text
+  const map = { Enter: 'enter', Tab: 'tab', Escape: 'esc', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Delete: 'delete' };
+  if (map[e.key]) { e.preventDefault(); send({ t: 'key', k: map[e.key] }); }
+  else if (e.key === 'Backspace' && kb.value.length <= PREFIX.length) { e.preventDefault(); send({ t: 'key', k: 'backspace' }); }
+});
+
+// ---------------------------------------------------------------- scroll slider
+const sc = $('scroll'), knob = $('knob');
+let sPid = null, sOff = 0, sTimer = 0;
+function setScrollShown(on) {
+  document.body.classList.toggle('scroll-on', on);
+  $('scrollBtn').classList.toggle('on', on);
+  $('scrollBtn').setAttribute('aria-pressed', on);
+  try { localStorage.ctlScroll = on ? '1' : '0'; } catch (e) {}
+}
+$('scrollBtn').onclick = () => setScrollShown(!document.body.classList.contains('scroll-on'));
+setScrollShown((() => { try { return localStorage.ctlScroll === '1'; } catch (e) { return false; } })());
+sc.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  sPid = e.pointerId; sc.setPointerCapture(sPid); sc.classList.add('drag');
+  moveKnob(e);
+  clearInterval(sTimer);
+  sTimer = setInterval(() => {
+    if (!sOff) return;
+    const s = Math.sign(sOff) * Math.pow(Math.abs(sOff), 1.6);    // gentle near the middle, fast at the ends
+    send({ t: 'wheel', dy: Math.round(-s * 360) });
+    reqFrame();
+  }, 45);
+});
+function moveKnob(e) {
+  const r = sc.getBoundingClientRect(), half = r.height / 2 - 18;
+  const dy = Math.max(-half, Math.min(half, e.clientY - (r.top + r.height / 2)));
+  sOff = Math.abs(dy) < 6 ? 0 : dy / half;
+  knob.style.transform = `translateY(${dy}px)`;
+}
+sc.addEventListener('pointermove', e => { if (e.pointerId === sPid) moveKnob(e); });
+function scrollEnd(e) {
+  if (e.pointerId !== sPid) return;
+  sPid = null; sOff = 0; clearInterval(sTimer); sc.classList.remove('drag');
+  knob.style.transform = '';
+}
+sc.addEventListener('pointerup', scrollEnd);
+sc.addEventListener('pointercancel', scrollEnd);
+
+// ---------------------------------------------------------------- exit
+function releaseMods() {
+  for (const m in mods) if (mods[m]) { send({ t: 'key', k: m, a: 'up' }); mods[m] = false; }
+  document.querySelectorAll('.mod').forEach(b => b.classList.remove('on'));
+}
+$('exitB').onclick = () => { releaseMods(); postExit(); };
+
+// ---------------------------------------------------------------- view only / Hide UI
+function setControl(on) {
+  canControl = on;
+  if (!on) { releaseMods(); tm.cancel(); pid = null; kb.blur(); }
+  send({ t: 'ctl', on });
+  document.body.classList.toggle('viewonly', !on);
+  $('ctlBtn').classList.toggle('on', on);
+  $('cCtl').classList.toggle('on', on);
+  parent.postMessage({ t: 'control-state', on }, location.origin);
+  toast(on ? 'PC control is on' : 'View only. This phone can only watch the PC.');
+}
+$('ctlBtn').onclick = $('cCtl').onclick = () => setControl(!canControl);
+
+function setClean(on) {
+  if (on) kb.blur();
+  document.body.classList.toggle('clean', on);
+  layout();
+}
+$('hideBtn').onclick = () => setClean(true);
+$('cShow').onclick = () => setClean(false);
+$('cFull').onclick = () => {
+  if (document.documentElement.requestFullscreen) parent.postMessage({ t: 'fullscreen' }, location.origin);
+  else toast("This phone's browser can't go full screen");
+};
+addEventListener('pagehide', releaseMods);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { releaseMods(); tm.cancel(); pid = null; }
+  else reqFrame();
+});
+
+document.addEventListener('touchmove', e => { if (!e.target.closest('#panel')) e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+$('tip').classList.add('show');
+layout(); setTimeout(layout, 50); connect();
+</script>
+</body>
+</html>

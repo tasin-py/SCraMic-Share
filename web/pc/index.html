@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SCraMic Share</title>
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/static/pc.css">
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<section id="home" class="screen">
+  <header class="top">
+    <div class="brand"><img src="/assets/logo.svg" alt=""><b>SCraMic <span>Share</span></b></div>
+    <button class="iconbtn" id="openSettings" title="Settings"><i data-ic="settings"></i></button>
+  </header>
+  <div class="home-body">
+    <h1>How do you want to connect your phone?</h1>
+    <p class="sub">Use your phone's camera, microphone and screen on this PC.</p>
+    <div class="modes">
+      <button class="mode" id="goWireless">
+        <span class="mode-ic"><i data-ic="wifi"></i></span>
+        <b>Wireless</b>
+        <span>Over WiFi. Your phone and PC need to be on the same network.</span>
+      </button>
+      <button class="mode" id="goWired">
+        <span class="mode-ic"><i data-ic="wire"></i></span>
+        <b>Wired</b>
+        <span>Over a USB cable. Lowest delay, works with iPhone and Android.</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WIRELESS: QR + waiting ============ -->
+<section id="wireless" class="screen hidden">
+  <header class="top">
+    <button class="iconbtn back" title="Back"><i data-ic="back"></i></button>
+    <div class="title">Wireless mode</div>
+    <button class="iconbtn openSettings2" title="Settings"><i data-ic="settings"></i></button>
+  </header>
+  <div class="pair">
+    <div class="qr-card">
+      <div class="qr" id="qr"></div>
+      <div class="url" id="url">…</div>
+      <details class="others hidden" id="othersWrap">
+        <summary>Doesn't open? Try another address</summary>
+        <div id="others"></div>
+      </details>
+    </div>
+    <div class="pair-info">
+      <div class="status" id="pairStatus"><span class="dot wait"></span><span>Waiting for your phone…</span></div>
+      <ol class="steps" id="steps">
+        <li>Connect your phone to the <b>same WiFi</b> as this PC.</li>
+        <li>Open your phone's <b>Camera</b> and scan the QR code, then tap the link.</li>
+        <li>If the browser says <b>"Not private"</b> or <b>"Not secure"</b>, that's expected: this is your own PC. Tap <b>Advanced → Proceed</b> (Android) or <b>Show Details → visit this website</b> (iPhone).</li>
+        <li>Pick <b>Wireless</b> on the phone, then choose a feature.</li>
+      </ol>
+      <div class="connected hidden" id="connected">
+        <div class="phone-card">
+          <span class="mode-ic"><i data-ic="phone"></i></span>
+          <div><b id="phoneName">Phone</b><span>Pick a feature on your phone to start.</span></div>
+        </div>
+        <button class="btn danger" id="kickPhone"><i data-ic="power"></i>Disconnect phone</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WIRED (next phase) ============ -->
+<section id="wired" class="screen hidden">
+  <header class="top">
+    <button class="iconbtn back" title="Back"><i data-ic="back"></i></button>
+    <div class="title">Wired mode</div>
+    <button class="iconbtn openSettings2" title="Settings"><i data-ic="settings"></i></button>
+  </header>
+  <div class="wired-body">
+    <div class="wcard" id="wAndroid">
+      <div class="wcard-top"><span class="mode-ic"><i data-ic="phone"></i></span><div><b>Android</b><span>USB cable · USB debugging</span></div></div>
+      <div class="wstatus" id="aStatus"><span class="dot wait"></span><span>Checking…</span></div>
+      <div id="aBody"></div>
+    </div>
+    <div class="wcard" id="wIphone">
+      <div class="wcard-top"><span class="mode-ic"><i data-ic="phone"></i></span><div><b>iPhone</b><span>USB cable · Personal Hotspot</span></div></div>
+      <p class="wnote">For iPhone we recommend Wireless. It is much more stable than Wired.</p>
+      <div class="wstatus" id="iStatus"><span class="dot wait"></span><span>Waiting for an iPhone on the cable…</span></div>
+      <div id="iBody"></div>
+    </div>
+    <div class="connected hidden wired-connected" id="wConnected">
+      <div class="phone-card">
+        <span class="mode-ic"><i data-ic="phone"></i></span>
+        <div><b id="wPhoneName">Phone</b><span>Connected. Pick Wired, then a feature on your phone.</span></div>
+      </div>
+      <button class="btn danger" id="kickPhone3"><i data-ic="power"></i>Disconnect phone</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LIVE: camera / microphone ============ -->
+<section id="live" class="screen hidden">
+  <div class="stage" id="stage">
+    <button class="iconbtn live-back" id="liveBack" title="Back"><i data-ic="back"></i></button>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="wcv" class="hidden"></canvas>
+    <canvas id="bubble" class="hidden"></canvas>
+    <div class="remote hidden" id="remote">
+      <span class="mode-ic big" id="remoteIc"></span>
+      <h2 id="remoteTitle">Teacher mode is on</h2>
+      <p class="sub" id="remoteText">Draw on your phone. The ink appears on top of your screen.</p>
+      <div id="remoteBody"></div>
+      <div class="rotate hidden" id="rxRotate">
+        <label class="rotate-auto"><input type="checkbox" id="rotAuto"> Auto rotate with the phone</label>
+        <div class="wrow">
+          <button class="btn" id="rotLeft">Turn left</button>
+          <span class="rotate-now" id="rotNow">0°</span>
+          <button class="btn" id="rotRight">Turn right</button>
+        </div>
+      </div>
+      <label class="rotate-auto rx-control hidden" id="rxControlRow"><input type="checkbox" id="rxControl"> Control the phone from this PC</label>
+      <button class="btn" id="minimize">Minimize this window</button>
+    </div>
+    <div class="stage-msg hidden" id="stageMsg">Connecting…</div>
+    <div class="mic-route hidden" id="micRoute"></div>
+  </div>
+  <div class="livebar">
+    <div class="pill"><span class="dot live"></span><span id="liveTitle">Camera</span></div>
+    <div class="chips">
+      <span class="chip hidden" id="chipMic"><i data-ic="mic"></i><span>Mic on</span></span>
+      <span class="chip hidden" id="chipMuted"><i data-ic="micOff"></i><span>Muted</span></span>
+      <span class="chip hidden" id="chipDark"><i data-ic="moon"></i><span>Phone screen off</span></span>
+      <span class="chip hidden" id="chipVideoOff"><i data-ic="videoOff"></i><span>Video off</span></span>
+      <div class="quality hidden" id="quality">
+        <label>Resolution <select id="qRes"></select></label>
+        <label>FPS <select id="qFps"></select></label>
+        <span class="q-now" id="qNow"></span>
+      </div>
+    </div>
+    <div class="live-actions">
+      <button class="btn danger" id="stopFeature"><i data-ic="power"></i><span id="stopLabel">Stop camera</span></button>
+      <button class="btn" id="kickPhone2" title="Disconnect the phone completely">Disconnect phone</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<div class="modal hidden" id="settings">
+  <div class="sheet">
+    <button class="iconbtn close" data-close title="Close"><i data-ic="close"></i></button>
+    <div class="brand center"><img src="/assets/logo.svg" alt=""><b>SCraMic <span>Share</span></b></div>
+    <p class="made">Made by <b>Tasin's problem</b></p>
+    <div class="socials">
+      <button class="social" data-link="https://fb.com/tasin.py"><i data-ic="facebook"></i><span>fb.com/tasin.py</span><i data-ic="arrowOut"></i></button>
+      <button class="social" data-link="https://instagram.com/tasin.py/"><i data-ic="instagram"></i><span>instagram.com/tasin.py</span><i data-ic="arrowOut"></i></button>
+      <button class="social" data-link="https://github.com/tasin-py"><i data-ic="github"></i><span>github.com/tasin-py</span><i data-ic="arrowOut"></i></button>
+    </div>
+    <div class="devices">
+      <b class="dev-title">Use your phone in other apps</b>
+      <div class="dev-row"><i data-ic="camera"></i><div><b>ScramicShare Cam</b><span>Phone camera in Zoom, Meet, Discord, OBS…</span></div><button class="btn small" id="devCam">Install</button></div>
+      <div class="dev-row"><i data-ic="mic"></i><div><b>ScramicShare Mic</b><span>Phone mic and sound as a microphone</span></div><button class="btn small" id="devMic">Install</button></div>
+      <label class="dev-check"><input type="checkbox" id="monitor"> Also play the phone's sound on this PC</label>
+      <p class="dev-note">Installing asks Windows for permission once.</p>
+    </div>
+    <button class="btn primary coffee" id="openCoffee"><i data-ic="coffee"></i>Buy me a Coffee</button>
+    <div class="update">
+      <button class="btn" id="checkUpdate">Check for updates</button>
+      <p class="update-msg hidden" id="updateMsg"></p>
+      <button class="btn primary hidden" id="getUpdate" data-link="https://github.com/tasin-py/SCraMic-Share/releases"></button>
+      <p class="ver" id="appVer"></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="coffee">
+  <div class="sheet qr-sheet">
+    <button class="iconbtn close" data-close title="Close"><i data-ic="close"></i></button>
+    <h2>Buy me a Coffee ☕</h2>
+    <p class="sub">Scan with any Bangla QR supported app (bKash, Nagad, bank apps).</p>
+    <img src="/assets/bangla-qr.png" alt="Bangla QR for donation" class="bangla">
+    <div class="binance">
+      <div><span>Or send with Binance</span><b>Binance ID: <span id="binanceId">741109839</span></b></div>
+      <button class="btn small" id="copyBinance">Copy</button>
+    </div>
+    <p class="sub small">Thank you for supporting SCraMic Share!</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/assets/icons.js"></script>
+<script src="/assets/bubble.js"></script>
+<script src="/static/pc.js"></script>
+</body>
+</html>

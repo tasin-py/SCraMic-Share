@@ -1,0 +1,7 @@
+PySide6>=6.12
+aiohttp>=3.9
+qrcode>=7.4
+cryptography>=42
+mss>=9
+pillow>=10
+numpy>=1.26
