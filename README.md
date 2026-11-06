@@ -39,8 +39,10 @@ Works with iPhone and Android, over WiFi or USB. Nothing to install on the phone
 
 | Feature | What it does |
 |---|---|
-| **Camera share** | Shows your phone's camera on your PC, with recording to your Videos folder and a pop-out video window |
+| **Camera share** | Shows your phone's camera on your PC |
 | **Streamer mode** | Up to Full HD 60 fps (if the device camera allows), with resolution and FPS controls on the phone and PC |
+| **Recording** | Saves the camera video to your Videos folder, with sound, up to 60 fps |
+| **OBS Mode** | Pops the video out into its own window for OBS, with a short guide in the app |
 | **Microphone share** | Sends your phone's mic to your PC, with a mute button |
 | **ScramicShare Cam and Mic** | Lets you pick the phone as your camera and microphone in Zoom, Meet, Discord, OBS and more |
 | **Screen share** | Mirrors your phone to the PC, with rotation on iPhone and a share-only option on Android |
@@ -80,6 +82,16 @@ Click **Wired** and follow the steps on screen.
 > [!TIP]
 > On iPhone we recommend Wireless, because it's much more stable than Wired.
 
+### Moving around on the phone
+
+Back takes you to the feature menu without disconnecting. Back from the menu asks if you want to disconnect. Most screens also have a **Disconnect** button, which asks first too. Teacher mode has **Exit**, which takes you back to the menu.
+
+### Recording
+
+During Camera share or Streamer mode, click **Record** on the PC, then click again to stop. Recordings are saved in `Videos\SCraMic Share`, with sound and your Rotate choice.
+
+They're MP4 files. If your graphics card can't make H.264, recording falls back to the processor, which can lag on detailed 60 fps video, and the file uses VP9. If your player won't open that file, try VLC.
+
 ### Screen share
 
 | Phone | Connection | How to start |
@@ -95,7 +107,16 @@ In the app, open **Settings** and click **Install** next to each one. Windows as
 
 **Using ScramicShare Cam in OBS:** add a **Video Capture Device** and pick **ScramicShare Cam**. In its properties, set **Resolution/FPS Type** to **Custom**, choose your **Resolution**, and set **Video Format** to **ARGB**.
 
-**Smoothest picture in OBS:** click **Pop out** in the app, add a **Window Capture** of **ScramicShare Video**, and set its **Capture Method** to **Windows 10 (1903 and up)**. Keep that window open. It can sit behind other windows, but Windows can't capture a minimized one. To use this in Discord or Zoom, click **Start Virtual Camera** in OBS, then pick **OBS Virtual Camera** in that app.
+ScramicShare Cam runs at up to 30 fps. For a smoother picture, use OBS Mode.
+
+### OBS Mode
+
+This captures the video as a window, for the smoothest picture. The same steps are in the app: click **OBS Mode** on the video screen.
+
+1. Click **Pop out** in the app. Keep that window open. It can sit behind other windows, but Windows can't capture a minimized one.
+2. In OBS, add a **Window Capture** source.
+3. Set **Window** to **ScramicShare Video**, and **Capture Method** to **Windows 10 (1903 and up)**.
+4. For Discord or Zoom, click **Start Virtual Camera** in OBS, then pick **OBS Virtual Camera** in that app.
 
 ## Privacy and security
 
