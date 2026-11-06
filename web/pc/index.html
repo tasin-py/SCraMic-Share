@@ -136,6 +136,9 @@
       </div>
     </div>
     <div class="live-actions">
+      <button class="btn hidden" id="recBtn" title="Record this video to your PC"><i data-ic="record"></i><span id="recLabel">Record</span></button>
+      <button class="btn hidden" id="popBtn" title="Open the video in its own window, ready to capture in OBS"><i data-ic="popOut"></i><span id="popLabel">Pop out</span></button>
+      <button class="btn hidden" id="obsBtn" title="How to use this video in OBS">OBS Mode</button>
       <button class="btn danger" id="stopFeature"><i data-ic="power"></i><span id="stopLabel">Stop camera</span></button>
       <button class="btn" id="kickPhone2" title="Disconnect the phone completely">Disconnect phone</button>
     </div>
@@ -159,6 +162,7 @@
       <div class="dev-row"><i data-ic="mic"></i><div><b>ScramicShare Mic</b><span>Phone mic and sound as a microphone</span></div><button class="btn small" id="devMic">Install</button></div>
       <label class="dev-check"><input type="checkbox" id="monitor"> Also play the phone's sound on this PC</label>
       <p class="dev-note">Installing asks Windows for permission once.</p>
+      <p class="dev-note">In OBS, open the camera's properties, then set Resolution/FPS Type to Custom and Video Format to ARGB.</p>
     </div>
     <button class="btn primary coffee" id="openCoffee"><i data-ic="coffee"></i>Buy me a Coffee</button>
     <div class="update">
@@ -166,6 +170,31 @@
       <p class="update-msg hidden" id="updateMsg"></p>
       <button class="btn primary hidden" id="getUpdate" data-link="https://github.com/tasin-py/SCraMic-Share/releases"></button>
       <p class="ver" id="appVer"></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="obsGuide">
+  <div class="sheet guide">
+    <button class="iconbtn close" data-close title="Close"><i data-ic="close"></i></button>
+    <h2>OBS Mode</h2>
+    <p class="sub">Capture the video as a window, for the smoothest picture.</p>
+    <ol class="steps small">
+      <li>Click <b>Pop out</b> here. Keep that window open. It can sit behind other windows, but don't minimize it.</li>
+      <li>In OBS, add a <b>Window Capture</b> source.</li>
+      <li>Set <b>Window</b> to <b>ScramicShare Video</b>, and <b>Capture Method</b> to <b>Windows 10 (1903 and up)</b>.</li>
+      <li>For Discord or Zoom, click <b>Start Virtual Camera</b> in OBS, then pick <b>OBS Virtual Camera</b> in that app.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="modal hidden" id="discAsk">
+  <div class="sheet ask">
+    <h2>Disconnect this phone?</h2>
+    <p class="sub">The phone will have to connect again to share anything.</p>
+    <div class="ask-row">
+      <button class="btn" data-close>No</button>
+      <button class="btn danger" id="discYes">Yes, disconnect</button>
     </div>
   </div>
 </div>
@@ -188,6 +217,7 @@
 
 <script src="/assets/icons.js"></script>
 <script src="/assets/bubble.js"></script>
+<script src="/static/mp4mux.js"></script>
 <script src="/static/pc.js"></script>
 </body>
 </html>

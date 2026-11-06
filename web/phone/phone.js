@@ -114,7 +114,35 @@ function goneScreen(title, text) {
   show('sGone');
 }
 $('reconnect').onclick = () => { show('sConnect'); $('connectText').textContent = 'Connecting to your PC…'; connect(); };
-$('disconnectAll').onclick = () => goneScreen('Disconnected', 'This phone is no longer connected to your PC.');
+
+// ---------------------------------------------------------------- disconnecting always asks first
+function askDisconnect(text) {
+  $('askText').textContent = text;
+  $('discAsk').classList.remove('hidden');
+}
+const askOpen = () => !$('discAsk').classList.contains('hidden');
+$('askNo').onclick = () => $('discAsk').classList.add('hidden');
+$('askYes').onclick = () => {
+  $('discAsk').classList.add('hidden');
+  if (feature) endFeature();                // tells the PC too, so screen sharing stops as well
+  everConnected = false;                    // next time starts from Wireless / Wired
+  goneScreen('Disconnected', 'This phone is no longer connected to your PC.');
+};
+const ASK_BUTTON = 'This phone will stop sharing and disconnect from your PC.';
+const ASK_BACK = 'Going back will disconnect this phone from your PC. Do you want to go back?';
+document.querySelectorAll('[data-disc]').forEach(b => b.onclick = () => askDisconnect(ASK_BUTTON));
+$('menuBack').onclick = () => askDisconnect(ASK_BACK);
+
+// The phone's own Back button or gesture works the same as the buttons here, instead of leaving the page.
+function goBack() {
+  if (askOpen()) { $('discAsk').classList.add('hidden'); return; }
+  if (!$('dark').classList.contains('hidden')) return;     // hold to wake first
+  if (panel || screen === 'sCamera' || screen === 'sMic' || screen === 'sScreen') { endFeature(); show('sMenu'); }
+  else if (screen === 'sWired') show('sChoose');
+  else if (screen === 'sMenu' || screen === 'sChoose') askDisconnect(ASK_BACK);
+}
+history.pushState({ app: 1 }, '');
+addEventListener('popstate', () => { history.pushState({ app: 1 }, ''); goBack(); });
 
 // ---------------------------------------------------------------- navigation
 function useMode(wired) {
@@ -169,6 +197,7 @@ addEventListener('message', e => {
   if (e.origin !== location.origin || !panel || e.source !== panel.contentWindow) return;
   if (!e.data) return;
   if (e.data.t === 'exit') { endFeature(); show('sMenu'); }
+  else if (e.data.t === 'disconnect') askDisconnect(ASK_BUTTON);
   else if (e.data.t === 'control-state') send({ t: 'control-state', on: !!e.data.on });
   else if (e.data.t === 'fullscreen') {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});

@@ -56,6 +56,25 @@ class WinBridge(QObject):
     view = Signal(object)   # the turned phone screen: (hwnd, degrees) or None
 
 
+class AppView(QWebEngineView):
+    """The app's page. window.open() from it makes the pop-out video window."""
+    def createWindow(self, kind):
+        pop = QWebEngineView()
+        pop.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        pop.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
+        pop.setWindowTitle("ScramicShare Video")
+        pop.setWindowIcon(QIcon(str(ROOT / "web" / "assets" / "logo.svg")))
+        pop.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        pop.page().setBackgroundColor(QColor("#000000"))
+        pop.page().settings().setAttribute(QWebEngineSettings.WebAttribute.PlaybackRequiresUserGesture, False)
+        pop.page().windowCloseRequested.connect(pop.close)
+        pop.page().geometryChangeRequested.connect(lambda r: pop.resize(r.size()))   # the size the page asked for
+        pop.resize(960, 540)
+        pop.show()
+        dark_title_bar(int(pop.winId()))
+        return pop
+
+
 class Window(QMainWindow):
     def __init__(self, url):
         super().__init__()
@@ -65,7 +84,7 @@ class Window(QMainWindow):
         self.setMinimumSize(900, 600)
         self.setStyleSheet(f"background:{BG};")
 
-        view = QWebEngineView(self)
+        view = AppView(self)
         page = view.page()
         page.setBackgroundColor(QColor(BG))
         s = page.settings()

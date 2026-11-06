@@ -127,6 +127,7 @@ body.clean #clean { display: flex; }
     <button class="d" data-key="down">▼</button><button class="r" data-key="right">▶</button>
   </div>
   <div class="gap"></div>
+  <button class="k exit" id="discB"><i data-ic="close"></i><small>Disconnect</small></button>
   <button class="k exit" id="exitB"><i data-ic="power"></i><small>Exit</small></button>
   <span id="led"></span>
 </div>
@@ -331,6 +332,7 @@ function releaseMods() {
   document.querySelectorAll('.mod').forEach(b => b.classList.remove('on'));
 }
 $('exitB').onclick = () => { releaseMods(); postExit(); };
+$('discB').onclick = () => parent.postMessage({ t: 'disconnect' }, location.origin);
 
 // ---------------------------------------------------------------- view only / Hide UI
 function setControl(on) {

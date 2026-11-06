@@ -19,6 +19,18 @@ html, body { height: 100%; overscroll-behavior: none; touch-action: manipulation
 .bar-title { font-size: 17px; font-weight: 650; }
 .iconbtn.danger { color: #ff8a8b; background: rgba(255, 77, 79, .12); border-color: rgba(255, 77, 79, .3); }
 
+.bar-end { display: inline-flex; align-items: center; gap: 8px; }
+.disc {
+  flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: #ff8a8b; background: rgba(255, 77, 79, .14); border: 1px solid rgba(255, 77, 79, .3);
+}
+.cam-disc { position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 10px); z-index: 2; background: rgba(40, 10, 10, .72); }
+#discAsk { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 24px; background: rgba(0, 0, 0, .7); }
+.ask-card { width: 100%; max-width: 340px; padding: 22px; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); }
+.ask-card .muted { margin: 0 0 18px; }
+.ask-row { display: flex; gap: 10px; }
+.ask-row .btn { flex: 1; height: 46px; }
+
 .live-tag {
   display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
   padding: 6px 11px; border-radius: 99px; background: rgba(255, 255, 255, .07);
@@ -109,7 +121,11 @@ body.pitch, #sMic { background: #000; }
 #wake .track { fill: none; stroke: #1c1c1c; stroke-width: 3; }
 #wake .ring { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 289; stroke-dashoffset: 289; }
 #wake.holding { color: #8a8a8a; }
-#darkMute, #darkVideo { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 48px); color: #6a6a6a; white-space: nowrap; }
+.dark-actions { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 48px); display: flex; justify-content: center; }
+#darkMute, #darkVideo { color: #6a6a6a; white-space: nowrap; }
+@media (orientation: landscape) and (max-height: 560px) {   /* sideways there's no room below Hold: the button goes beside it */
+  .dark-actions { left: auto; right: calc(env(safe-area-inset-right) + 36px); top: 0; bottom: 0; align-items: center; }
+}
 #darkMute .ic, #darkVideo .ic { background: #111; color: #8a8a8a; }
 #darkMute.on, #darkVideo.on { color: #b35a14; }
 #darkVideo.on .ic { background: #3a1d06; color: var(--accent); }

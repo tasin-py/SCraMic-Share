@@ -74,8 +74,12 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 
 .livebar {
   flex: none; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px 20px; background: var(--bg); border-top: 1px solid var(--line);
+  padding: 14px 20px; background: var(--bg); border-top: 1px solid var(--line); flex-wrap: wrap;
 }
+.btn.recording { color: #ff8a8b; border-color: rgba(255, 77, 79, .5); font-variant-numeric: tabular-nums; }
+.btn.recording .ic { animation: rec 1.2s ease-in-out infinite; }
+@keyframes rec { 50% { opacity: .35; } }
+.sheet.ask .ask-row { display: flex; gap: 10px; margin-top: 8px; }
 .pill { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px; }
 .chips { display: flex; gap: 8px; flex: 1; }
 .chip {
@@ -106,6 +110,7 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
   animation: pop .18s ease-out;
 }
 @keyframes pop { from { transform: scale(.96); opacity: 0; } }
+.sheet > * { flex-shrink: 0; }   /* a short window scrolls the sheet, instead of squashing what's in it */
 .sheet .close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; }
 .brand.center { justify-content: center; }
 .made { color: var(--muted); margin: 14px 0 20px; }
@@ -148,6 +153,7 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .wstatus { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-bottom: 12px; }
 .wtext { color: #cfcfcf; margin: 0 0 14px; font-size: 14px; }
 .wnote { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+.sheet.guide { text-align: left; }
 .steps.small { font-size: 14px; }
 .steps.small li { margin-bottom: 8px; }
 .wrow { display: flex; align-items: center; gap: 18px; }

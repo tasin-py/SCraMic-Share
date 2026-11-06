@@ -25,7 +25,7 @@
 <section id="sChoose" class="screen hidden">
   <header class="bar">
     <div class="brand"><img src="/assets/logo.svg" alt=""><b>SCraMic <span>Share</span></b></div>
-    <span class="live-tag"><span class="dot live"></span>PC</span>
+    <span class="bar-end"><span class="live-tag"><span class="dot live"></span>PC</span><button class="disc" data-disc>Disconnect</button></span>
   </header>
   <div class="body">
     <h1>Connect with</h1>
@@ -45,7 +45,7 @@
 <section id="sWired" class="screen hidden">
   <header class="bar">
     <button class="iconbtn" data-go="sChoose"><i data-ic="back"></i></button>
-    <b class="bar-title">Wired mode</b><span style="width:44px"></span>
+    <b class="bar-title">Wired mode</b><button class="disc" data-disc>Disconnect</button>
   </header>
   <div class="body">
     <h2 class="steps-title">Connect with a cable</h2>
@@ -79,9 +79,9 @@
 <!-- feature menu -->
 <section id="sMenu" class="screen hidden">
   <header class="bar">
-    <button class="iconbtn" data-go="sChoose"><i data-ic="back"></i></button>
+    <button class="iconbtn" id="menuBack" aria-label="Back"><i data-ic="back"></i></button>
     <b class="bar-title" id="menuTitle">Wireless</b>
-    <button class="iconbtn danger" id="disconnectAll" title="Disconnect"><i data-ic="power"></i></button>
+    <button class="disc" data-disc>Disconnect</button>
   </header>
   <div class="body">
     <div class="grid">
@@ -99,6 +99,7 @@
 <section id="sCamera" class="screen hidden cam">
   <div class="preview" id="preview"><video id="camVideo" autoplay playsinline muted></video></div>
   <button class="iconbtn cam-back" id="camBack" aria-label="Back"><i data-ic="back"></i></button>
+  <button class="disc cam-disc" data-disc>Disconnect</button>
   <div class="cam-top">
     <span class="live-tag"><span class="dot live"></span>Live on PC</span>
     <button class="live-tag hidden" id="camQual"></button>
@@ -123,7 +124,7 @@
   <header class="bar">
     <button class="iconbtn" id="micBack" aria-label="Back"><i data-ic="back"></i></button>
     <b class="bar-title">Microphone</b>
-    <span class="live-tag"><span class="dot live"></span>Live</span>
+    <span class="bar-end"><span class="live-tag"><span class="dot live"></span>Live</span><button class="disc" data-disc>Disconnect</button></span>
   </header>
   <div class="mic-stage"><canvas id="micBubble"></canvas></div>
   <p class="muted center-text" id="micHint">Your PC is hearing this phone</p>
@@ -139,7 +140,7 @@
   <header class="bar">
     <button class="iconbtn" id="scrBack" aria-label="Back"><i data-ic="back"></i></button>
     <b class="bar-title">Screen share</b>
-    <span class="live-tag"><span class="dot live"></span>PC</span>
+    <button class="disc" data-disc>Disconnect</button>
   </header>
   <div class="body">
     <p class="status-line"><span class="dot wait" id="scrDot"></span><span id="scrState">Your PC is getting ready…</span></p>
@@ -180,8 +181,22 @@
     <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" class="track"/><circle cx="50" cy="50" r="46" class="ring" id="wakeRing"/></svg>
     <span>Hold</span>
   </button>
-  <button class="round big hidden" id="darkMute"></button>
-  <button class="round big hidden" id="darkVideo"></button>
+  <div class="dark-actions">
+    <button class="round big hidden" id="darkMute"></button>
+    <button class="round big hidden" id="darkVideo"></button>
+  </div>
+</div>
+
+<!-- are you sure? -->
+<div id="discAsk" class="hidden">
+  <div class="ask-card">
+    <h2>Disconnect from PC?</h2>
+    <p class="muted" id="askText"></p>
+    <div class="ask-row">
+      <button class="btn" id="askNo">No</button>
+      <button class="btn danger" id="askYes">Yes</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>

@@ -167,6 +167,19 @@ class Hub:
         await self.send(self.phone, {"t": "peer", "connected": self.pc is not None})
 
 
+def videos_folder():
+    """Where recordings go: "SCraMic Share" in the user's Videos folder, wherever Windows keeps that."""
+    base = Path.home() / "Videos"
+    try:
+        import winreg
+        key = r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+            base = Path(os.path.expandvars(winreg.QueryValueEx(k, "My Video")[0]))
+    except OSError:
+        pass
+    return base / "SCraMic Share"
+
+
 def build_app(hub, role_default, info, live=None):
     async def ws_handler(request):
         role = request.query.get("role", role_default)
@@ -293,18 +306,58 @@ def build_app(hub, role_default, info, live=None):
     app.router.add_get("/api/qr.svg", api_qr)
     app.router.add_get("/media", media_handler)
 
-    # PC page -> ScramicShare Cam: JPEG frames of whatever camera is live
+    # PC page -> ScramicShare Cam: JPEG frames of whatever camera is live, while an app has the camera open
     async def vcam_handler(request):
         if role_default != "pc" or request.remote not in ("127.0.0.1", "::1"):
             raise web.HTTPForbidden()
         ws = web.WebSocketResponse(max_msg_size=16 * 1024 * 1024, compress=False)
         await ws.prepare(request)
-        loop = asyncio.get_running_loop()
-        async for m in ws:
-            if m.type == WSMsgType.BINARY and hub.vcam:
-                await loop.run_in_executor(None, hub.vcam.push_jpeg, m.data)
+
+        async def tell_page():
+            told = None
+            while not ws.closed:
+                on = bool(hub.vcam and hub.vcam.active)
+                if on != told:
+                    await ws.send_str("on" if on else "off")
+                    told = on
+                await asyncio.sleep(0.25)
+
+        telling = asyncio.ensure_future(tell_page())
+        try:
+            async for m in ws:
+                if m.type == WSMsgType.BINARY and hub.vcam:
+                    hub.vcam.push_jpeg(m.data)
+        finally:
+            telling.cancel()
         return ws
     app.router.add_get("/vcam", vcam_handler)
+
+    # PC page -> a video file on this PC. The first message names the format, then pieces of the file follow.
+    async def record_handler(request):
+        if role_default != "pc" or request.remote not in ("127.0.0.1", "::1"):
+            raise web.HTTPForbidden()
+        ws = web.WebSocketResponse(max_msg_size=256 * 1024 * 1024, compress=False)
+        await ws.prepare(request)
+        loop = asyncio.get_running_loop()
+        out = None
+        try:
+            async for m in ws:
+                if m.type == WSMsgType.TEXT and out is None:
+                    ext = "mp4" if m.data == "mp4" else "webm"
+                    folder = videos_folder()
+                    folder.mkdir(parents=True, exist_ok=True)
+                    path = folder / f"SCraMic Share {datetime.datetime.now():%Y-%m-%d %H-%M-%S}.{ext}"
+                    out = open(path, "wb")
+                    await ws.send_str(str(path))
+                elif m.type == WSMsgType.BINARY and out:
+                    await loop.run_in_executor(None, out.write, m.data)
+        except OSError as e:
+            await ws.send_str("error:" + str(e))
+        finally:
+            if out:
+                out.close()
+        return ws
+    app.router.add_get("/record", record_handler)
     async def api_update(request):
         result = await asyncio.get_running_loop().run_in_executor(None, updates.check)
         return web.json_response(result)

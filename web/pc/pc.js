@@ -170,7 +170,9 @@ function handle(m) {
   }
 }
 
-$('kickPhone').onclick = $('kickPhone2').onclick = $('kickPhone3').onclick = () => {
+$('kickPhone').onclick = $('kickPhone2').onclick = $('kickPhone3').onclick = () => openModal('discAsk');
+$('discYes').onclick = () => {
+  closeModal($('discYes'));
   send({ t: 'disconnect' });
   endFeature();
   show(backTo);
@@ -219,6 +221,10 @@ function startFeature(f, wired, msg) {
   video.classList.toggle('hidden', !isCam(f) || wiredFeature);
   $('wcv').classList.toggle('hidden', !isCam(f) || !wiredFeature);
   $('live').classList.toggle('mic-mode', f === 'mic');
+  $('liveBack').classList.toggle('hidden', isCam(f));   // the video's own screen: Stop and Disconnect are in the bar
+  $('recBtn').classList.toggle('hidden', !isCam(f));
+  $('popBtn').classList.toggle('hidden', !isCam(f));
+  $('obsBtn').classList.toggle('hidden', !isCam(f));
   $('quality').classList.toggle('hidden', f !== 'streamer');
   $('qNow').textContent = '';
   $('bubble').classList.toggle('hidden', f !== 'mic');
@@ -246,6 +252,8 @@ function startFeature(f, wired, msg) {
 }
 
 function endFeature() {
+  recStop();
+  popClose();
   if (feature === 'screen') send({ t: 'rx', a: 'stop' });
   else if (REMOTE[feature]) send({ t: 'win', a: 'restore' });
   feature = null;
@@ -270,6 +278,7 @@ async function onOffer(m) {
     stream = e.streams[0] || new MediaStream([e.track]);
     if (video.srcObject !== stream) { video.muted = true; video.srcObject = stream; }   // routeAudio unmutes it
     video.play().catch(() => {});
+    popFeed();
     if (e.track.kind === 'audio' && feature === 'mic') attachAnalyser(stream);
     if (e.track.kind === 'video' || feature === 'mic') $('stageMsg').classList.add('hidden');
   };
@@ -316,6 +325,7 @@ function layout() {
   el.style.width = vw * s + 'px';
   el.style.height = vh * s + 'px';
   el.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+  popLayout();
 }
 video.addEventListener('resize', layout);          // phone turned sideways -> new frame size
 video.addEventListener('loadedmetadata', layout);
@@ -413,7 +423,7 @@ async function drawFrame() {     // always shows the newest frame; older ones ar
     const c = $('wcv');
     if (c.width !== bmp.width || c.height !== bmp.height) { c.width = bmp.width; c.height = bmp.height; layout(); }
     c.getContext('2d').drawImage(bmp, 0, 0);
-    bmp.close();
+    vcamWired(bmp);
     wiredFrames++;
     $('stageMsg').classList.add('hidden');
   } catch (e) {}
@@ -812,40 +822,308 @@ setInterval(async () => {
   send({ t: 'stream-stats', text });
 }, 1000);
 
-// camera frames -> ScramicShare Cam (the phone's rotation applied)
-let vws = null, vbusy = false, vcFps = 30;
+// ---------------------------------------------------------------- pop-out video window
+// Plays the same stream as the app, with nothing around it, so OBS can capture it cleanly.
+let popWin = null, popVid = null, popCanvasStream = null;
+function popFeed() {
+  if (!popVid) return;
+  if (wiredFeature) popVid.srcObject = popCanvasStream || (popCanvasStream = $('wcv').captureStream());
+  else if (popVid.srcObject !== video.srcObject) popVid.srcObject = video.srcObject;
+  popVid.play().catch(() => {});
+}
+function popLayout() {
+  if (!popVid || !popWin || popWin.closed) return;
+  const vw = popVid.videoWidth, vh = popVid.videoHeight;
+  if (!vw || !vh) return;
+  const side = rot % 180 !== 0, s = Math.min(popWin.innerWidth / (side ? vh : vw), popWin.innerHeight / (side ? vw : vh));
+  popVid.style.width = vw * s + 'px';
+  popVid.style.height = vh * s + 'px';
+  popVid.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+}
+function popOpen() {
+  const el = wiredFeature ? $('wcv') : video;
+  const vw = (wiredFeature ? el.width : video.videoWidth) || 16, vh = (wiredFeature ? el.height : video.videoHeight) || 9;
+  const side = rot % 180 !== 0, tall = (side ? vw : vh) > (side ? vh : vw);
+  const h = tall ? 800 : 540, w = Math.round(h * (side ? vh : vw) / (side ? vw : vh));
+  popWin = window.open('', 'ScramicShareVideo', `popup,width=${w},height=${h}`);
+  if (!popWin) { toast("Couldn't open the video window"); return; }
+  const d = popWin.document;
+  d.title = 'ScramicShare Video';
+  d.body.style.cssText = 'margin:0;background:#000;overflow:hidden';
+  popVid = d.createElement('video');
+  popVid.autoplay = popVid.muted = popVid.playsInline = true;
+  popVid.style.cssText = 'position:absolute;left:50%;top:50%;transform-origin:center';
+  d.body.appendChild(popVid);
+  popVid.addEventListener('resize', popLayout);
+  popVid.addEventListener('loadedmetadata', popLayout);
+  popWin.addEventListener('resize', popLayout);
+  popFeed();
+  $('popLabel').textContent = 'Close pop out';
+}
+function popClose() {
+  if (popWin && !popWin.closed) popWin.close();
+  popWin = popVid = popCanvasStream = null;
+  $('popLabel').textContent = 'Pop out';
+}
+$('popBtn').onclick = () => { if (popWin && !popWin.closed) popClose(); else popOpen(); };
+$('obsBtn').onclick = () => openModal('obsGuide');
+setInterval(() => { if (popWin && popWin.closed) popClose(); }, 500);
+
+// ---------------------------------------------------------------- recording: the video from the phone, saved on this PC
+// The stream is passed through here so the phone's Rotate choice is in the file, and it keeps going while minimized.
+// With a graphics card that can make H.264, it does the work: smooth at any frame rate, and every player opens the file.
+// Otherwise MediaRecorder makes it on the processor, which can't keep up with detailed 60 fps video.
+const REC_TYPES = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+const H264_CONFIG = (w, h) => ({ codec: w * h > 1920 * 1088 ? 'avc1.640033' : 'avc1.64002A', width: w, height: h, bitrate: Math.min(20e6, w * h * 7.2), framerate: 60, hardwareAcceleration: 'prefer-hardware', latencyMode: 'realtime', avc: { format: 'avc' } });
+const AAC_CONFIG = (sampleRate, numberOfChannels) => ({ codec: 'mp4a.40.2', sampleRate, numberOfChannels, bitrate: 160000 });
+let rec = null, recHardware = false;
+Promise.all([VideoEncoder.isConfigSupported(H264_CONFIG(1920, 1080)), AudioEncoder.isConfigSupported(AAC_CONFIG(48000, 2))])
+  .then(([v, a]) => { recHardware = v.supported && a.supported; }).catch(() => {});
+function recTrack() {
+  const s = wiredFeature ? (rec && rec.canvasStream) : video.srcObject;
+  return s && s.getVideoTracks()[0] || null;
+}
+async function recFeed(track) {
+  const r = rec, mine = ++r.feed;
+  r.track = track;
+  const reader = new MediaStreamTrackProcessor({ track }).readable.getReader();
+  let cv = null, cx = null;
+  try {
+    while (rec === r && r.feed === mine) {
+      const { value: f, done } = await reader.read();
+      if (done) break;
+      if (rec !== r || r.feed !== mine) { f.close(); break; }
+      const w = f.displayWidth, h = f.displayHeight, side = rot % 180 !== 0;
+      if (!r.W) { r.W = (side ? h : w) & ~1; r.H = (side ? w : h) & ~1; }    // one recording keeps one size, so every player copes
+      if (!rot && w === r.W && h === r.H) { await r.put(f); continue; }      // put() closes the frame
+      if (!cv) { cv = new OffscreenCanvas(r.W, r.H); cx = cv.getContext('2d', { alpha: false }); }
+      const s = Math.min(r.W / (side ? h : w), r.H / (side ? w : h));
+      cx.fillStyle = '#000'; cx.fillRect(0, 0, r.W, r.H);
+      cx.save(); cx.translate(r.W / 2, r.H / 2); cx.rotate(rot * Math.PI / 180);
+      cx.drawImage(f, -w * s / 2, -h * s / 2, w * s, h * s);
+      cx.restore();
+      const out = new VideoFrame(cv, { timestamp: f.timestamp });
+      f.close();
+      await r.put(out);
+    }
+  } catch (e) {}
+  reader.cancel().catch(() => {});
+}
+function recTick() {
+  const r = rec;
+  if (!r) return;
+  const t = Math.floor((performance.now() - r.start) / 1000);
+  $('recLabel').textContent = `Stop ${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+  const track = recTrack();
+  if (track && track !== r.track) recFeed(track);              // the phone restarted its video
+  if (wiredFeature) {
+    if (wnode && wnode !== r.wnode) {
+      r.wnode = wnode;
+      const d = wctx.createMediaStreamDestination();
+      wnode.connect(d);
+      r.ctx.createMediaStreamSource(d.stream).connect(r.dest);
+    }
+  } else if (video.srcObject) {
+    video.srcObject.getAudioTracks().forEach(a => {
+      if (r.audio.has(a)) return;
+      r.audio.add(a);
+      r.ctx.createMediaStreamSource(new MediaStream([a])).connect(r.dest);
+    });
+  }
+}
+// The graphics card's H.264, and AAC sound, put into an MP4 by mp4mux.js.
+function recHardwareRoute(r) {
+  const fail = () => { if (r.failed) return; r.failed = true; toast("Couldn't keep recording, so it was saved up to here"); if (rec === r) recStop(); };
+  const channels = 2;
+  r.dest.channelCount = channels;
+  const venc = new VideoEncoder({ error: fail, output: (chunk, meta) => r.mux.addVideo(chunk, meta, chunk.timestamp) });
+  const aenc = new AudioEncoder({
+    error: () => {},                                     // the video still matters without its sound
+    output: (chunk, meta) => {
+      if (r.wall === undefined) return;                  // sound starts with the first picture
+      if (r.soundAt === undefined) r.soundAt = (performance.now() - r.wall) * 1000 - chunk.timestamp;
+      r.mux.addAudio(chunk, meta, chunk.timestamp + r.soundAt);
+    },
+  });
+  aenc.configure(AAC_CONFIG(r.ctx.sampleRate, channels));
+  let last = -1, lastKey = -1e9;
+  r.put = f => {
+    if (!r.mux) {
+      venc.configure(H264_CONFIG(r.W, r.H));
+      r.mux = new Mp4Mux(b => { if (r.ws.readyState === 1) r.ws.send(b); }, r.W, r.H, r.ctx.sampleRate, channels);
+    }
+    if (venc.encodeQueueSize > 3) { f.close(); return; }           // the card is busy: skip one, don't fall behind
+    if (r.wall === undefined) { r.wall = performance.now(); r.base = f.timestamp; }
+    let time = f.timestamp - r.base;
+    if (time <= last || time - last > 2e6) {             // the phone restarted its video: its clock starts over
+      time = Math.max(last + 1000, (performance.now() - r.wall) * 1000);
+      r.base = f.timestamp - time;
+    }
+    last = time;
+    const out = new VideoFrame(f, { timestamp: time });
+    f.close();
+    const keyFrame = time - lastKey >= 2e6;
+    if (keyFrame) lastKey = time;
+    venc.encode(out, { keyFrame });
+    out.close();
+  };
+  const sound = new MediaStreamTrackProcessor({ track: r.dest.stream.getAudioTracks()[0] }).readable.getReader();
+  (async () => {
+    try {
+      while (rec === r) {
+        const { value, done } = await sound.read();
+        if (done) break;
+        if (rec === r && aenc.state === 'configured') aenc.encode(value);
+        value.close();
+      }
+    } catch (e) {}
+    sound.cancel().catch(() => {});
+  })();
+  r.finish = async () => {
+    try { if (venc.state === 'configured') await venc.flush(); } catch (e) {}
+    try { if (aenc.state === 'configured') await aenc.flush(); } catch (e) {}
+    if (r.mux) r.mux.flush();
+    if (venc.state !== 'closed') venc.close();
+    if (aenc.state !== 'closed') aenc.close();
+    r.ctx.close().catch(() => {});
+    r.ws.close();
+  };
+}
+// The processor's fallback.
+function recMediaRecorderRoute(r, type) {
+  const gen = new MediaStreamTrackGenerator({ kind: 'video' });
+  const mr = new MediaRecorder(new MediaStream([gen, r.dest.stream.getAudioTracks()[0]]), { mimeType: type, videoBitsPerSecond: 12e6, audioBitsPerSecond: 160e3 });
+  const writer = gen.writable.getWriter();
+  let chain = Promise.resolve();
+  r.put = f => writer.write(f);
+  r.begin = () => mr.start(1000);
+  mr.ondataavailable = e => {
+    if (!e.data.size) return;
+    chain = chain.then(async () => { const b = await e.data.arrayBuffer(); if (r.ws.readyState === 1) r.ws.send(b); });
+  };
+  mr.onstop = () => { chain = chain.then(() => r.ws.close()); r.ctx.close().catch(() => {}); };
+  r.finish = () => { if (mr.state !== 'inactive') mr.stop(); else r.ws.close(); };
+}
+function recStart() {
+  const type = recHardware ? 'video/mp4' : REC_TYPES.find(t => MediaRecorder.isTypeSupported(t));
+  const canvasStream = wiredFeature ? $('wcv').captureStream() : null;
+  const track = canvasStream ? canvasStream.getVideoTracks()[0] : video.srcObject && video.srcObject.getVideoTracks()[0];
+  if (!type || !track) { toast('Wait for the video to start, then try again'); return; }
+  const ctx = new AudioContext();
+  ctx.resume();
+  const dest = ctx.createMediaStreamDestination();
+  const ws = new WebSocket(`ws://${location.host}/record`);
+  const r = rec = { ws, ctx, dest, canvasStream, audio: new Set(), feed: 0, track: null, wnode: null, start: performance.now(), path: '', failed: false };
+  if (recHardware) recHardwareRoute(r); else recMediaRecorderRoute(r, type);
+  ws.onopen = () => {
+    ws.send(type.startsWith('video/mp4') ? 'mp4' : 'webm');
+    recFeed(track);
+    recTick();
+    if (r.begin) r.begin();
+    r.start = performance.now();
+  };
+  ws.onmessage = e => {
+    if (e.data.startsWith('error:')) { r.failed = true; toast("Couldn't save the recording: " + e.data.slice(6)); if (rec === r) recStop(); }
+    else r.path = e.data;
+  };
+  ws.onclose = () => {
+    if (r.path && !r.failed) toast('Recording saved: ' + r.path);
+    else if (!r.failed) toast("Couldn't save the recording");
+    if (rec === r) recStop();
+  };
+  $('recBtn').classList.add('recording');
+  $('recLabel').textContent = 'Stop 00:00';
+}
+function recStop() {
+  const r = rec;
+  if (!r) return;
+  rec = null;
+  r.finish();
+  $('recBtn').classList.remove('recording');
+  $('recLabel').textContent = 'Record';
+}
+$('recBtn').onclick = () => { if (rec) recStop(); else recStart(); };
+setInterval(recTick, 500);
+
+// camera frames -> ScramicShare Cam, as each new one arrives (the phone's rotation applied).
+// A worker receives and compresses them, so the preview stays smooth and it keeps working while the app is
+// minimized. It only does this while another app has the camera open.
+const VCAM_WORKER = `
+let ws, cv, cx, on = false, opts = {}, next = null, working = false, reading = 0;
+function connect(url) {
+  ws = new WebSocket(url);
+  ws.onmessage = e => { on = e.data === 'on'; };
+  ws.onclose = () => { on = false; setTimeout(() => connect(url), 1500); };
+}
+function give(frame) {                                 // only the newest frame waits
+  if (next) next.close();
+  next = frame;
+  if (!working) work();
+}
+async function work() {
+  working = true;
+  while (next) {
+    const f = next; next = null;
+    try {
+      if (on && opts.live && ws.readyState === 1 && ws.bufferedAmount < 2e6) {
+        if (!cv || cv.width !== opts.W || cv.height !== opts.H) { cv = new OffscreenCanvas(opts.W, opts.H); cx = cv.getContext('2d', { alpha: false, willReadFrequently: true }); }
+        const W = opts.W, H = opts.H, rot = opts.rot, w = f.displayWidth || f.width, h = f.displayHeight || f.height;
+        const side = rot % 180 !== 0, s = Math.min(W / (side ? h : w), H / (side ? w : h));
+        cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+        cx.save(); cx.translate(W / 2, H / 2);
+        cx.scale(1, -1);                               // the camera reads the bottom row first
+        cx.rotate(rot * Math.PI / 180);
+        cx.drawImage(f, -w * s / 2, -h * s / 2, w * s, h * s);
+        cx.restore();
+        const blob = await cv.convertToBlob({ type: 'image/jpeg', quality: opts.q });
+        if (ws.readyState === 1) ws.send(await blob.arrayBuffer());
+      }
+    } catch (e) {}
+    f.close();
+  }
+  working = false;
+}
+async function read(readable) {                        // every frame of the phone's video track
+  const mine = ++reading, reader = readable.getReader();
+  try {
+    while (mine === reading) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (mine === reading) give(value); else value.close();
+    }
+  } catch (e) {}
+  reader.cancel().catch(() => {});
+}
+onmessage = e => {
+  const m = e.data;
+  if (m.url) connect(m.url);
+  if (m.opts) opts = m.opts;
+  if (m.readable) read(m.readable);
+  if (m.frame) give(m.frame);
+};`;
+const vworker = new Worker(URL.createObjectURL(new Blob([VCAM_WORKER], { type: 'text/javascript' })));
+vworker.postMessage({ url: `ws://${location.host}/vcam` });
+let vcW = 1280, vcH = 720, vcamTrack = null;
 function setVcamMode(w, h, fps) {
-  if (vc.width === w && vc.height === h && vcFps === fps) return;
-  vc.width = w; vc.height = h; vcFps = fps;
+  vcW = w; vcH = h;
   send({ t: 'vcam-mode', w, h, fps });
 }
-function vconnect() {
-  vws = new WebSocket(`ws://${location.host}/vcam`);
-  vws.binaryType = 'arraybuffer';
-  vws.onclose = () => setTimeout(vconnect, 1500);
+// keeps the worker up to date, and gives it the phone's video track whenever that changes
+setInterval(() => {
+  const live = isCam(feature) && devState.cam === 'ready';
+  vworker.postMessage({ opts: { live, rot, W: vcW, H: vcH, q: 0.85 } });
+  const track = video.srcObject && video.srcObject.getVideoTracks()[0] || null;
+  if (track && track !== vcamTrack) {
+    const { readable } = new MediaStreamTrackProcessor({ track });
+    vworker.postMessage({ readable }, [readable]);
+  }
+  vcamTrack = track;
+}, 100);
+// over the cable there's no track: each decoded frame is handed over
+function vcamWired(frame) {
+  if (devState.cam === 'ready') vworker.postMessage({ frame }, [frame]);
+  else frame.close();
 }
-vconnect();
-const vc = document.createElement('canvas'); vc.width = 1280; vc.height = 720;
-const vx = vc.getContext('2d');
-function vcamTick() {
-  setTimeout(vcamTick, 1000 / vcFps);
-  if (!isCam(feature) || devState.cam !== 'ready' || !vws || vws.readyState !== 1 || vbusy) return;
-  const src = wiredFeature ? $('wcv') : video;
-  const w = wiredFeature ? src.width : video.videoWidth, h = wiredFeature ? src.height : video.videoHeight;
-  if (!w || !h) return;
-  const W = vc.width, H = vc.height;
-  vx.fillStyle = '#000'; vx.fillRect(0, 0, W, H);
-  const side = rot % 180 !== 0, s = Math.min(W / (side ? h : w), H / (side ? w : h));
-  vx.save(); vx.translate(W / 2, H / 2); vx.rotate(rot * Math.PI / 180);
-  vx.drawImage(src, -w * s / 2, -h * s / 2, w * s, h * s);
-  vx.restore();
-  vbusy = true;
-  vc.toBlob(b => {
-    if (!b) { vbusy = false; return; }
-    b.arrayBuffer().then(buf => { vbusy = false; if (vws.readyState === 1 && vws.bufferedAmount < 8e6) vws.send(buf); });
-  }, 'image/jpeg', feature === 'streamer' ? 0.9 : 0.85);
-}
-vcamTick();
 
 send({ t: 'dev', a: 'state' });
 setTimeout(() => send({ t: 'dev', a: 'state' }), 1500);

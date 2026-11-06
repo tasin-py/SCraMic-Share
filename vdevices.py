@@ -263,18 +263,23 @@ def rename_mic():
 
 # ---------------------------------------------------------------- frames -> ScramicShare Cam
 class VirtualCam:
-    """Takes JPEG frames from the PC page and shows them in ScramicShare Cam."""
+    """Takes JPEG frames from the PC page and shows them in ScramicShare Cam, as soon as each one arrives."""
     W, H, FPS = 1280, 720, 30
+    FRAME_TIME = 1 / 30        # the camera's own pace
 
     def __init__(self):
         self.cam = None
         self.want = (self.W, self.H, self.FPS)
-        self.frame = None
-        self.last_new = 0.0
+        self.last_new = 0.0        # the phone's last picture
+        self.last_sent = 0.0       # the last picture of any kind
+        self.active = False        # an app is fetching pictures from the camera
         self.lock = threading.Lock()
+        self.jpeg = None
+        self.jpeg_ready = threading.Condition()
         self.error = ""
         self.idle = None
         threading.Thread(target=self._loop, daemon=True, name="vcam").start()
+        threading.Thread(target=self._decode_loop, daemon=True, name="vcam-decode").start()
 
     def _idle_frame(self):
         if self.idle is None:
@@ -294,56 +299,65 @@ class VirtualCam:
         return self.idle
 
     def configure(self, w, h, fps):
-        """Output size for ScramicShare Cam: 720p30 normally, up to 1080p60 in Streamer mode."""
+        """Output size for ScramicShare Cam: 720p normally, up to 1080p in Streamer mode. Always 30 pictures per second."""
         try:
             self.want = (max(320, min(int(w), 1920)), max(240, min(int(h), 1080)), max(15, min(int(fps), 60)))
         except (TypeError, ValueError):
             pass
 
     def push_jpeg(self, data):
-        """Called from the server thread with one JPEG frame."""
-        try:
-            import numpy as np
-            from PIL import Image
-            im = Image.open(io.BytesIO(data)).convert("RGB")
-            with self.lock:
-                self.frame = np.asarray(im)
-                self.last_new = time.monotonic()
-        except Exception as e:
-            self.error = str(e)
+        """Takes one JPEG frame. Only the newest waits, so a slow moment never builds up a delay."""
+        with self.jpeg_ready:
+            self.jpeg = data
+            self.jpeg_ready.notify()
+
+    def _decode_loop(self):
+        from PIL import Image
+        while True:
+            with self.jpeg_ready:
+                while self.jpeg is None:
+                    self.jpeg_ready.wait()
+                data, self.jpeg = self.jpeg, None
+            try:
+                im = Image.open(io.BytesIO(data)).convert("RGBA")   # the page already turned it upside down
+                pixels = im.tobytes()
+                with self.lock:
+                    if self.cam and self.cam.send_rgba(pixels, *im.size):
+                        self.last_new = self.last_sent = time.monotonic()
+            except Exception as e:
+                self.error = str(e)
 
     def _loop(self):
-        next_frame = time.monotonic()
+        """Keeps the camera going between the phone's pictures: the "starting" picture, or the last one again."""
+        last_wanted = 0.0
         while True:
-            if not cam_installed():
-                time.sleep(3)
-                continue
             try:
-                from unitycam import UnityCam
+                if self.cam is None:
+                    if not cam_installed():
+                        time.sleep(3)
+                        continue
+                    from unitycam import UnityCam
+                    self.cam = UnityCam()
+                    self.error = ""
                 if self.want != (self.W, self.H, self.FPS):
                     self.W, self.H, self.FPS = self.want
                     self.idle = None
-                if self.cam is None:
-                    self.cam = UnityCam()
-                    self.error = ""
+                now = time.monotonic()
                 with self.lock:
-                    live = self.frame is not None and time.monotonic() - self.last_new < 2.0
-                    f = self.frame if live else None
-                if f is None or f.shape[:2] != (self.H, self.W):   # none yet, or from before a size change
-                    f = self._idle_frame()
-                if not self.cam.send(f):                           # no app has the camera open
-                    time.sleep(0.5)
-                    next_frame = time.monotonic()
-                    continue
-                next_frame += 1 / self.FPS
-                wait = next_frame - time.monotonic()
-                if wait > 0:
-                    time.sleep(wait)
-                else:
-                    next_frame = time.monotonic()                  # fell behind: don't try to catch up
+                    if self.cam.wanted():
+                        last_wanted = now
+                    self.active = now - last_wanted < 1.5
+                    if now - self.last_new >= 2.0:
+                        if self.cam.send(self._idle_frame()):
+                            self.last_sent = now
+                    elif now - self.last_sent > self.FRAME_TIME * 1.5:     # the phone is between pictures
+                        self.cam.repeat()
+                        self.last_sent = now
+                time.sleep(self.FRAME_TIME / 2 if self.active else 0.5)
             except Exception as e:
                 self.error = str(e)
                 self.cam = None
+                self.active = False
                 time.sleep(2)
 
 

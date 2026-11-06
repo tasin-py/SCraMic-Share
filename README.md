@@ -39,7 +39,7 @@ Works with iPhone and Android, over WiFi or USB. Nothing to install on the phone
 
 | Feature | What it does |
 |---|---|
-| **Camera share** | Shows your phone's camera on your PC |
+| **Camera share** | Shows your phone's camera on your PC, with recording to your Videos folder and a pop-out video window |
 | **Streamer mode** | Up to Full HD 60 fps (if the device camera allows), with resolution and FPS controls on the phone and PC |
 | **Microphone share** | Sends your phone's mic to your PC, with a mute button |
 | **ScramicShare Cam and Mic** | Lets you pick the phone as your camera and microphone in Zoom, Meet, Discord, OBS and more |
@@ -92,6 +92,10 @@ Click **Wired** and follow the steps on screen.
 ### ScramicShare Cam and Mic
 
 In the app, open **Settings** and click **Install** next to each one. Windows asks for permission once. Then pick them as the camera or microphone in your other apps.
+
+**Using ScramicShare Cam in OBS:** add a **Video Capture Device** and pick **ScramicShare Cam**. In its properties, set **Resolution/FPS Type** to **Custom**, choose your **Resolution**, and set **Video Format** to **ARGB**.
+
+**Smoothest picture in OBS:** click **Pop out** in the app, add a **Window Capture** of **ScramicShare Video**, and set its **Capture Method** to **Windows 10 (1903 and up)**. Keep that window open. It can sit behind other windows, but Windows can't capture a minimized one. To use this in Discord or Zoom, click **Start Virtual Camera** in OBS, then pick **OBS Virtual Camera** in that app.
 
 ## Privacy and security
 
