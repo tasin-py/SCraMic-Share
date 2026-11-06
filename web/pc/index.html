@@ -168,6 +168,7 @@
     <div class="update">
       <button class="btn" id="checkUpdate">Check for updates</button>
       <p class="update-msg hidden" id="updateMsg"></p>
+      <button class="btn primary hidden" id="installUpdate"></button>
       <button class="btn primary hidden" id="getUpdate" data-link="https://github.com/tasin-py/SCraMic-Share/releases"></button>
       <p class="ver" id="appVer"></p>
     </div>
@@ -195,6 +196,17 @@
     <div class="ask-row">
       <button class="btn" data-close>No</button>
       <button class="btn danger" id="discYes">Yes, disconnect</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="updateAsk">
+  <div class="sheet ask">
+    <h2>Update now?</h2>
+    <p class="sub" id="updateAskText"></p>
+    <div class="ask-row">
+      <button class="btn" data-close>Not now</button>
+      <button class="btn primary" id="updateYes">Yes, update</button>
     </div>
   </div>
 </div>

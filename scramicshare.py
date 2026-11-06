@@ -114,8 +114,10 @@ class Window(QMainWindow):
         dark_title_bar(int(self.winId()))
 
     def window_action(self, a):
-        """Teacher / PC Control minimize the app so the phone sees the desktop."""
-        if a == "min":
+        """Teacher / PC Control minimize the app so the phone sees the desktop. An update closes it."""
+        if a == "quit":
+            QApplication.quit()
+        elif a == "min":
             self.showMinimized()
         elif a == "restore" and self.isMinimized():
             self.showNormal()

@@ -67,5 +67,7 @@ jobs:
         run: |
           $setup = "dist/SCraMicShare-Setup-${{ steps.version.outputs.version }}.exe"
           $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
+          # The app's Update button won't install a download that doesn't match this file.
+          Set-Content "$setup.sha256" $hash -NoNewline
           $notes = "Download **SCraMicShare-Setup-${{ steps.version.outputs.version }}.exe** below and run it.`n`nWindows may say it protected your PC, because the app isn't code-signed yet. Click **More info**, then **Run anyway**.`n`nSHA-256: ``$hash``"
-          gh release create "$env:GITHUB_REF_NAME" $setup --draft --title "SCraMic Share ${{ steps.version.outputs.version }}" --notes "$notes"
+          gh release create "$env:GITHUB_REF_NAME" $setup "$setup.sha256" --draft --title "SCraMic Share ${{ steps.version.outputs.version }}" --notes "$notes"

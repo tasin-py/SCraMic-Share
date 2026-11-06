@@ -61,7 +61,7 @@ Camera share and Streamer mode also have a battery-saving dark screen, with a vi
 > [!NOTE]
 > The app isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info**, then **Run anyway**. You can compare the file with the SHA-256 listed on the release first.
 
-The app checks for new versions each time it starts and tells you when one is available.
+The app checks for new versions each time it starts and tells you when one is available. To update, open **Settings** and click **Update to version x.x.x**. The app downloads the new version, closes, installs it and reopens. Versions before 1.2.2 need one manual download first.
 
 ## Getting started
 
@@ -121,8 +121,9 @@ This captures the video as a window, for the smoothest picture. The same steps a
 ## Privacy and security
 
 - **Your video and sound stay on your own network or cable.** There's no account and no cloud service.
-- **Pairing:** the phone connects using a private key inside the QR code, so only share that code with devices you trust.
-- **Update check:** each time it starts, the app asks GitHub for the list of releases. GitHub sees your internet address, as with any website. The app never installs anything by itself.
+- **Pairing:** the phone connects using a private key inside the QR code, so only share that code with devices you trust. Update to 1.2.2 or newer: on older versions, other devices on your network could read this key while the app was open.
+- **Websites:** the app's PC connection only accepts its own window, so websites open on your PC can't connect to it (1.2.2 or newer).
+- **Update check:** each time it starts, the app asks GitHub for the list of releases. GitHub sees your internet address, as with any website. An update only downloads and installs when you click its button, and the app checks the download against the SHA-256 published with the release first.
 - **Wireless debugging and USB debugging** let paired computers control your phone. Turn them off when you're on a network you don't trust.
 - **Downloads:** some features download [outside tools](#third-party-tools) when first needed. The app only asks for them when you use that feature.
 

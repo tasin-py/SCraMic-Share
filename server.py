@@ -154,6 +154,7 @@ class Hub:
         self.rx = None          # screen share receivers
         self.dev = None         # ScramicShare Cam / Mic install actions
         self.vcam = None        # frames -> ScramicShare Cam
+        self.update = None      # the Update button in Settings
 
     async def send(self, ws, msg):
         if ws is not None and not ws.closed:
@@ -180,10 +181,21 @@ def videos_folder():
     return base / "SCraMic Share"
 
 
+def own_address(request):
+    """The address the PC page is loaded from: this port, on 127.0.0.1."""
+    return f"127.0.0.1:{request.transport.get_extra_info('sockname')[1]}"
+
+
 def build_app(hub, role_default, info, live=None):
+    def from_pc_page(request):
+        """Being on this PC isn't enough: websites open in a browser here connect from this PC too.
+        Browsers always say which site a socket comes from, and websites can't change that."""
+        return (role_default == "pc" and request.remote in ("127.0.0.1", "::1")
+                and request.headers.get("Origin") == f"http://{own_address(request)}")
+
     async def ws_handler(request):
         role = request.query.get("role", role_default)
-        if role == "pc" and (role_default != "pc" or request.remote not in ("127.0.0.1", "::1")):
+        if role == "pc" and not from_pc_page(request):
             raise web.HTTPForbidden()
         if role == "phone" and not token_ok(request):
             raise web.HTTPForbidden(text="Scan the QR code in SCraMic Share again.")
@@ -212,6 +224,10 @@ def build_app(hub, role_default, info, live=None):
                 if role == "pc" and msg.get("t") == "open-link":
                     if msg.get("url") in ALLOWED_LINKS:
                         webbrowser.open(msg["url"])
+                    continue
+                if role == "pc" and msg.get("t") == "update-install":
+                    if hub.update:
+                        hub.update()
                     continue
                 if role == "pc" and str(msg.get("t", "")).startswith("wired"):
                     if hub.wired:
@@ -254,9 +270,7 @@ def build_app(hub, role_default, info, live=None):
         return web.json_response(info)
 
     async def api_qr(request):
-        text = info["url"]
-        if role_default == "pc" and request.query.get("text"):   # PC app only (localhost)
-            text = request.query["text"][:300]
+        text = request.query.get("text", "")[:300] or info["url"]
         return web.Response(text=qr_svg(text), content_type="image/svg+xml")
 
     async def api_wired(request):
@@ -271,7 +285,7 @@ def build_app(hub, role_default, info, live=None):
     async def media_handler(request):
         role = request.query.get("role", role_default)
         if role == "pc":
-            if role_default != "pc" or request.remote not in ("127.0.0.1", "::1"):
+            if not from_pc_page(request):
                 raise web.HTTPForbidden()
         elif not token_ok(request):
             raise web.HTTPForbidden()
@@ -299,16 +313,22 @@ def build_app(hub, role_default, info, live=None):
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
-    app = web.Application(middlewares=[no_cache])
+    @web.middleware
+    async def pc_address_only(request, handler):
+        """A website can point its own name at 127.0.0.1 and then read this site as if it were its own, key included.
+        Its name still shows in the request, so anything but the real address is refused."""
+        if role_default == "pc" and request.host != own_address(request):
+            raise web.HTTPForbidden()
+        return await handler(request)
+
+    app = web.Application(middlewares=[pc_address_only, no_cache])
     app.router.add_get("/", page)
     app.router.add_get("/ws", ws_handler)
-    app.router.add_get("/api/info", api_info)
-    app.router.add_get("/api/qr.svg", api_qr)
     app.router.add_get("/media", media_handler)
 
     # PC page -> ScramicShare Cam: JPEG frames of whatever camera is live, while an app has the camera open
     async def vcam_handler(request):
-        if role_default != "pc" or request.remote not in ("127.0.0.1", "::1"):
+        if not from_pc_page(request):
             raise web.HTTPForbidden()
         ws = web.WebSocketResponse(max_msg_size=16 * 1024 * 1024, compress=False)
         await ws.prepare(request)
@@ -334,7 +354,7 @@ def build_app(hub, role_default, info, live=None):
 
     # PC page -> a video file on this PC. The first message names the format, then pieces of the file follow.
     async def record_handler(request):
-        if role_default != "pc" or request.remote not in ("127.0.0.1", "::1"):
+        if not from_pc_page(request):
             raise web.HTTPForbidden()
         ws = web.WebSocketResponse(max_msg_size=256 * 1024 * 1024, compress=False)
         await ws.prepare(request)
@@ -365,7 +385,9 @@ def build_app(hub, role_default, info, live=None):
     async def api_version(request):
         return web.json_response({"version": updates.VERSION})
 
-    if role_default == "pc":
+    if role_default == "pc":   # these hold the pairing key: never on the phone site, which anyone on the WiFi can reach
+        app.router.add_get("/api/info", api_info)
+        app.router.add_get("/api/qr.svg", api_qr)
         app.router.add_get("/api/wired", api_wired)
         app.router.add_get("/api/update", api_update)
         app.router.add_get("/api/version", api_version)
@@ -437,6 +459,13 @@ class Server:
         tools.on_change = self.hub.rx.tool_changed
         self.hub.dev = vdevices.setup(tools, notify)
         self.hub.vcam = vdevices.VirtualCam()
+
+        updates.clean()   # the installer from the last update, if there was one
+        def close_app():
+            if self.hub.on_win:
+                self.hub.on_win("quit")
+        self.hub.update = lambda: threading.Thread(target=updates.install_update, args=(notify, close_app),
+                                                   daemon=True, name="update").start()
 
     @property
     def pc_url(self):

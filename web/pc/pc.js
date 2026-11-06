@@ -65,8 +65,10 @@ function showUpdate(r) {
   const newer = r.state === 'update';
   $('updateMsg').textContent = newer ? `Version ${r.version} is available.` : (UPDATE_TEXT[r.state] || UPDATE_TEXT.error);
   $('updateMsg').classList.remove('hidden');
+  $('installUpdate').textContent = `Update to version ${r.version}`;
+  $('installUpdate').classList.toggle('hidden', !(newer && r.can_install));
   $('getUpdate').textContent = `Download version ${r.version}`;
-  $('getUpdate').classList.toggle('hidden', !newer);
+  $('getUpdate').classList.toggle('hidden', !(newer && !r.can_install));
   document.querySelectorAll('#openSettings, .openSettings2').forEach(b => b.classList.toggle('has-update', newer));
 }
 $('checkUpdate').onclick = async () => {
@@ -74,11 +76,48 @@ $('checkUpdate').onclick = async () => {
   btn.disabled = true;
   btn.textContent = 'Checking…';
   $('getUpdate').classList.add('hidden');
+  $('installUpdate').classList.add('hidden');
   showUpdate(await askForUpdate());
   btn.disabled = false;
   btn.textContent = 'Check for updates';
   $('appVer').scrollIntoView({ block: 'nearest' });   // Settings scrolls: the answer must not land out of sight
 };
+function startUpdate() {
+  $('checkUpdate').disabled = true;
+  $('installUpdate').disabled = true;
+  $('installUpdate').textContent = 'Starting…';
+  send({ t: 'update-install' });
+}
+$('installUpdate').onclick = () => {
+  if (!phoneConnected && !rec) return startUpdate();
+  $('updateAskText').textContent = rec
+    ? 'SCraMic Share will close and reopen, which stops your recording and disconnects your phone.'
+    : 'SCraMic Share will close and reopen, which disconnects your phone.';
+  openModal('updateAsk');
+};
+$('updateYes').onclick = () => {
+  closeModal($('updateYes'));
+  startUpdate();
+};
+function renderUpdate(m) {
+  const btn = $('installUpdate');
+  if (m.phase === 'download') {
+    btn.textContent = `Downloading… ${m.percent}%`;
+    $('updateMsg').textContent = "You can keep using the app while it downloads.";
+  } else if (m.phase === 'install') {
+    btn.textContent = 'Installing…';
+    $('updateMsg').textContent = 'SCraMic Share will close now and reopen when the update is done.';
+  } else if (m.phase === 'failed') {
+    btn.disabled = false;
+    btn.classList.add('hidden');
+    $('checkUpdate').disabled = false;
+    $('updateMsg').textContent = "The update didn't finish, and nothing was changed. You can download it from GitHub instead.";
+    $('getUpdate').textContent = m.version ? `Download version ${m.version}` : 'Open the downloads page';
+    $('getUpdate').classList.remove('hidden');
+    $('appVer').scrollIntoView({ block: 'nearest' });
+    if ($('settings').classList.contains('hidden')) toast("The update didn't finish. Open Settings to download it.");
+  }
+}
 // Every time the app starts. It only speaks up for a real update: no internet is nobody's problem here.
 askForUpdate().then(r => {
   if (r.state !== 'update') return;
@@ -146,6 +185,7 @@ function setPhone(connected, info) {
 
 function handle(m) {
   switch (m.t) {
+    case 'update-state': renderUpdate(m); break;
     case 'peer': setPhone(m.connected, m.info); break;
     case 'feature': startFeature(m.f, m.wired, m); break;
     case 'wired': renderWired(m); break;

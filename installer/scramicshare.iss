@@ -37,11 +37,18 @@ Name: "{autodesktop}\SCraMic Share"; Filename: "{app}\SCraMicShare.exe"; Tasks: 
 
 [Run]
 Filename: "{app}\SCraMicShare.exe"; Description: "Open SCraMic Share"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\SCraMicShare.exe"; Flags: nowait; Check: UpdatingFromApp
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM SCraMicShare.exe /F"; Flags: runhidden; RunOnceId: "StopApp"
 
 [Code]
+{ The app's Update button runs this installer with /update=1: no questions, and reopen the app at the end. }
+function UpdatingFromApp: Boolean;
+begin
+  Result := ExpandConstant('{param:update|0}') = '1';
+end;
+
 procedure RunAsAdmin(const Exe, Params: String);
 var
   Code: Integer;
