@@ -143,7 +143,7 @@ def self_check(report):
                      "cryptography", "mss", "numpy", "PIL.Image", "qrcode.image.svg"):
             importlib.import_module(name)
         for path in ("web/pc/index.html", "web/pc/pc.js", "web/phone/index.html", "web/phone/teacher.html",
-                     "web/phone/control.html", "web/assets/logo.svg", "web/assets/stream.ico", "web/assets/bangla-qr.png"):
+                     "web/phone/control.html", "web/assets/logo.svg", "web/assets/stream.ico", "web/assets/supportkori-qr.png"):
             if not (ROOT / path).exists():
                 raise FileNotFoundError(path)
         QWindowCapture().setMaximumFrameRate(60)      # rotated phone screen

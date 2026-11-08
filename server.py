@@ -38,6 +38,7 @@ ALLOWED_LINKS = (
     "https://fb.com/tasin.py",
     "https://instagram.com/tasin.py/",
     "https://github.com/tasin-py",
+    "https://www.supportkori.com/tasinpy",
 )
 
 

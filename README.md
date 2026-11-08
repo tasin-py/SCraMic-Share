@@ -157,10 +157,9 @@ You can also start it by double-clicking `Start SCraMic Share.bat`.
 
 ## Support the project
 
-If SCraMic Share is useful to you, you can support it from **Settings → Buy me a Coffee** in the app, or here:
+If SCraMic Share is useful to you, you can support it on [**SupportKori**](https://www.supportkori.com/tasinpy), or from **Settings → Buy me a Coffee** in the app, which has the link and a QR code.
 
-- **Bangla QR:** [open the QR code](web/assets/bangla-qr.png)
-- **Binance ID:** `741109839`
+<img src="web/assets/supportkori-qr.png" alt="QR code for supportkori.com/tasinpy" width="160" height="160">
 
 Found a bug or have an idea? [Open an issue](https://github.com/tasin-py/SCraMic-Share/issues).
 

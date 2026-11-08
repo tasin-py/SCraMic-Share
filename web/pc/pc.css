@@ -132,14 +132,8 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 
 .qr-sheet { width: 420px; }
 .qr-sheet .sub { margin-bottom: 16px; }
-.binance {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: 14px;
-  padding: 10px 12px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); text-align: left;
-}
-.binance > div > span { display: block; color: var(--muted); font-size: 12.5px; }
-.binance b { font-weight: 650; }
-.binance b span { user-select: all; }
-.bangla { width: 100%; max-width: 340px; border-radius: 16px; background: #fff; display: block; }
+.support-qr { width: 100%; max-width: 256px; border-radius: 16px; background: #fff; display: block; image-rendering: pixelated; }
+.support-link { width: 100%; margin-top: 14px; }
 
 .remote { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; text-align: center; padding: 30px; overflow-y: auto; }
 .remote .sub { margin-bottom: 22px; }

@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 REPO = "tasin-py/SCraMic-Share"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases"
 RELEASES_API = f"https://api.github.com/repos/{REPO}/releases?per_page=30"   # also lists pre-releases

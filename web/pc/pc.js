@@ -29,21 +29,6 @@ function closeModal(el) { el.closest('.modal').classList.add('hidden'); }
 $('openSettings').onclick = () => { openModal('settings'); send({ t: 'dev', a: 'state' }); };
 document.querySelectorAll('.openSettings2').forEach(b => b.onclick = () => { openModal('settings'); send({ t: 'dev', a: 'state' }); });
 $('openCoffee').onclick = () => openModal('coffee');
-$('copyBinance').onclick = async () => {
-  const id = $('binanceId').textContent;
-  try {
-    await navigator.clipboard.writeText(id);
-  } catch (e) {                       // the app's window may not allow the newer way
-    const box = document.createElement('textarea');
-    box.value = id;
-    document.body.appendChild(box);
-    box.select();
-    document.execCommand('copy');
-    box.remove();
-  }
-  $('copyBinance').textContent = 'Copied';
-  setTimeout(() => { $('copyBinance').textContent = 'Copy'; }, 1500);
-};
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b));
 document.querySelectorAll('.modal').forEach(m => m.onclick = e => { if (e.target === m) m.classList.add('hidden'); });
 document.addEventListener('keydown', e => {
