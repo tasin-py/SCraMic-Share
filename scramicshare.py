@@ -11,6 +11,10 @@ if "--rename-mic" in sys.argv:       # the installed exe, restarted with admin r
     import vdevices
     vdevices.rename_mic_command()
     sys.exit(0)
+if "--remove-cam" in sys.argv:       # the same, to remove ScramicShare Cam (also run by the uninstaller)
+    import vdevices
+    vdevices.remove_cam_command()
+    sys.exit(0)
 
 CHECKING = "--check" in sys.argv     # the release build's test of the finished exe
 if CHECKING:
@@ -159,9 +163,28 @@ def self_check(report):
         finish(traceback.format_exc(), 1)
 
 
+def already_open():
+    """Only one copy may run: a second one (a double click too many, or anything starting the app over and over)
+    just brings the open window forward and stops, before it opens a window or starts anything itself.
+    The lock belongs to this process, so Windows lets go of it however the app ends."""
+    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
+    k32.CreateMutexW.restype = ctypes.c_void_p
+    already_open.lock = k32.CreateMutexW(None, False, r"Local\SCraMicShare.App")   # kept open while this copy runs
+    if k32.GetLastError() != 183:          # ERROR_ALREADY_EXISTS
+        return False
+    hwnd = u32.FindWindowW(None, APP_NAME)
+    if hwnd:
+        if u32.IsIconic(hwnd):
+            u32.ShowWindowAsync(hwnd, 9)   # SW_RESTORE, without waiting: a busy app mustn't hold this copy up
+        u32.SetForegroundWindow(hwnd)
+    return True
+
+
 def main():
     if CHECKING:
         return self_check(sys.argv[sys.argv.index("--check") + 1])
+    if already_open():
+        return 0
     try:   # own taskbar icon/group instead of python.exe's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Tasin.SCraMicShare")
     except Exception:

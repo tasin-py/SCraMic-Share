@@ -158,10 +158,10 @@
     </div>
     <div class="devices">
       <b class="dev-title">Use your phone in other apps</b>
-      <div class="dev-row"><i data-ic="camera"></i><div><b>ScramicShare Cam</b><span>Phone camera in Zoom, Meet, Discord, OBS…</span></div><button class="btn small" id="devCam">Install</button></div>
-      <div class="dev-row"><i data-ic="mic"></i><div><b>ScramicShare Mic</b><span>Phone mic and sound as a microphone</span></div><button class="btn small" id="devMic">Install</button></div>
+      <div class="dev-row"><i data-ic="camera"></i><div><b>ScramicShare Cam <em class="dev-ok hidden" id="devCamOk">Installed ✓</em></b><span>Phone camera in Zoom, Meet, Discord, OBS…</span></div><button class="btn small" id="devCam">Install</button></div>
+      <div class="dev-row"><i data-ic="mic"></i><div><b>ScramicShare Mic <em class="dev-ok hidden" id="devMicOk">Installed ✓</em></b><span>Phone mic and sound as a microphone</span></div><button class="btn small" id="devMic">Install</button></div>
       <label class="dev-check"><input type="checkbox" id="monitor"> Also play the phone's sound on this PC</label>
-      <p class="dev-note">Installing asks Windows for permission once.</p>
+      <p class="dev-note">Installing or removing asks Windows for permission.</p>
       <p class="dev-note">In OBS, open the camera's properties, then set Resolution/FPS Type to Custom and Video Format to ARGB.</p>
     </div>
     <button class="btn primary coffee" id="openCoffee"><i data-ic="coffee"></i>Buy me a Coffee</button>
@@ -171,6 +171,7 @@
       <button class="btn primary hidden" id="installUpdate"></button>
       <button class="btn primary hidden" id="getUpdate" data-link="https://github.com/tasin-py/SCraMic-Share/releases"></button>
       <p class="ver" id="appVer"></p>
+      <button class="link-btn hidden" id="uninstallApp">Uninstall SCraMic Share</button>
     </div>
   </div>
 </div>
@@ -196,6 +197,28 @@
     <div class="ask-row">
       <button class="btn" data-close>No</button>
       <button class="btn danger" id="discYes">Yes, disconnect</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="devAsk">
+  <div class="sheet ask">
+    <h2 id="devAskTitle"></h2>
+    <p class="sub" id="devAskText"></p>
+    <div class="ask-row">
+      <button class="btn" data-close>Keep it</button>
+      <button class="btn danger" id="devYes">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="uninstallAsk">
+  <div class="sheet ask">
+    <h2>Uninstall SCraMic Share?</h2>
+    <p class="sub">The app closes, and Windows' uninstaller opens to finish. It also offers to remove ScramicShare Cam and Mic.</p>
+    <div class="ask-row">
+      <button class="btn" data-close>Keep it</button>
+      <button class="btn danger" id="uninstallYes">Uninstall</button>
     </div>
   </div>
 </div>

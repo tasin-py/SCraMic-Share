@@ -185,8 +185,11 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .dev-row div { flex: 1; min-width: 0; }
 .dev-row b { display: block; font-weight: 600; font-size: 14px; }
 .dev-row span { color: var(--muted); font-size: 12px; }
+.dev-row .dev-ok { white-space: nowrap; font-style: normal; font-weight: 500; font-size: 12px; color: var(--accent); margin-left: 4px; }
 .btn.small { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 10px; flex: none; }
 .btn:disabled { opacity: .7; cursor: default; }
 .dev-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cfcfcf; margin: 6px 2px; cursor: pointer; }
 .dev-check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .dev-note { color: #6d6d6d; font-size: 12px; margin: 4px 2px 0; }
+.link-btn { background: none; border: 0; padding: 4px 8px; margin-top: 6px; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.link-btn:hover { color: #ff8a8b; }

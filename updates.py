@@ -111,13 +111,37 @@ def download(version, progress):
     return part.replace(FOLDER / name)
 
 
-def run_installer(path):
-    """Starts the installer on its own, so it outlives this app. /update=1 makes it reopen the app when it's done."""
+def _start_on_its_own(args, cwd):
+    """Starts a program that outlives this app, without the settings this app's own copy of Python runs with."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and k != "QTWEBENGINE_CHROMIUM_FLAGS"}
-    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"   # the reopened app must set itself up from scratch
-    subprocess.Popen([str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/update=1"],
-                     cwd=str(path.parent), env=env, close_fds=True,
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"   # an app reopened by it must set itself up from scratch
+    subprocess.Popen([str(a) for a in args], cwd=str(cwd), env=env, close_fds=True,
                      creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+
+
+def run_installer(path):
+    """Starts the installer on its own. /update=1 makes it reopen the app when it's done."""
+    _start_on_its_own([path, "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/update=1"], path.parent)
+
+
+def uninstaller():
+    """The installed app's uninstaller (unins000.exe beside it), or None when running from source."""
+    if not getattr(sys, "frozen", False):
+        return None
+    found = sorted(Path(sys.executable).parent.glob("unins[0-9][0-9][0-9].exe"))
+    return found[-1] if found else None
+
+
+def run_uninstaller():
+    """The Uninstall button: Windows' own uninstaller takes over, asking first. True if it started."""
+    path = uninstaller()
+    if not path:
+        return False
+    try:
+        _start_on_its_own([path], path.parent)
+    except OSError:
+        return False
+    return True
 
 
 def install_update(notify, close_app):

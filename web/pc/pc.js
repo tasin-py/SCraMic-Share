@@ -37,7 +37,16 @@ document.addEventListener('keydown', e => {
 document.querySelectorAll('[data-link]').forEach(b => b.onclick = () => send({ t: 'open-link', url: b.dataset.link }));
 
 // ---------------------------------------------------------------- check for updates
-fetch('/api/version').then(r => r.json()).then(v => { $('appVer').textContent = `Version ${v.version}`; }).catch(() => {});
+fetch('/api/version').then(r => r.json()).then(v => {
+  $('appVer').textContent = `Version ${v.version}`;
+  $('uninstallApp').classList.toggle('hidden', !v.can_uninstall);   // only the installed app has an uninstaller
+}).catch(() => {});
+$('uninstallApp').onclick = () => openModal('uninstallAsk');
+$('uninstallYes').onclick = () => {
+  $('uninstallYes').disabled = true;
+  $('uninstallYes').textContent = 'Closing…';
+  send({ t: 'uninstall' });
+};
 const UPDATE_TEXT = {
   current: "You're on the latest version.",
   none: 'No updates have been published yet.',
@@ -719,13 +728,20 @@ let monitorOn = (() => { try { return localStorage.monitor === '1'; } catch (e) 
 
 function renderDevices(m) {
   devState = m;
-  const row = (id, ready, busyText) => {
-    const b = $(id);
-    b.disabled = ready === 'ready';
-    b.textContent = ready === 'ready' ? 'Installed ✓' : (busyText || 'Install');
+  const row = (id, state, other) => {
+    $(id).disabled = false;
+    $(id).textContent = state === 'ready' ? 'Remove' : (other || 'Install');
+    $(id + 'Ok').textContent = 'Installed ✓';
+    $(id + 'Ok').classList.toggle('hidden', state !== 'ready');
   };
   row('devCam', m.cam);
   row('devMic', m.mic, m.mic === 'needs-rename' ? 'Finish setup' : 'Install');
+  if (m.mic_restart) {   // VB-CABLE is gone, but Windows lists it until a restart
+    $('devMic').disabled = true;
+    $('devMic').textContent = 'Removed';
+    $('devMicOk').textContent = 'Restart to finish';
+    $('devMicOk').classList.remove('hidden');
+  }
   if (m.mic !== 'missing') findFeed();
   renderMicRoute();
 }
@@ -751,8 +767,31 @@ function renderMicRoute() {
     };
   }
 }
-$('devCam').onclick = () => { $('devCam').textContent = 'Approve in Windows…'; $('devCam').disabled = true; send({ t: 'dev', a: 'install-cam' }); };
-$('devMic').onclick = () => { $('devMic').textContent = 'Approve in Windows…'; $('devMic').disabled = true; send({ t: 'dev', a: 'install-mic' }); };
+// Install, or Remove once it's installed (after asking first)
+const DEV_REMOVE = {
+  cam: ['Remove ScramicShare Cam?',
+        "Other apps won't list it as a camera anymore. You can install it again here anytime. Windows will ask for permission."],
+  mic: ['Remove ScramicShare Mic?',
+        "This removes VB-CABLE, the driver ScramicShare Mic is built on, so other apps that use VB-CABLE lose it too. " +
+        'Windows will ask for permission, and may need a restart to finish.'],
+};
+let devRemoving = null;
+function devStart(kind, action) {
+  const b = $(kind === 'cam' ? 'devCam' : 'devMic');
+  b.textContent = 'Approve in Windows…';
+  b.disabled = true;
+  send({ t: 'dev', a: `${action}-${kind}` });
+}
+function devClick(kind) {
+  if (devState[kind] !== 'ready') return devStart(kind, 'install');
+  devRemoving = kind;
+  $('devAskTitle').textContent = DEV_REMOVE[kind][0];
+  $('devAskText').textContent = DEV_REMOVE[kind][1];
+  openModal('devAsk');
+}
+$('devCam').onclick = () => devClick('cam');
+$('devMic').onclick = () => devClick('mic');
+$('devYes').onclick = () => { closeModal($('devYes')); devStart(devRemoving, 'remove'); };
 $('monitor').checked = monitorOn;
 $('monitor').onchange = () => {
   monitorOn = $('monitor').checked;

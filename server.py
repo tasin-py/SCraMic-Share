@@ -230,6 +230,10 @@ def build_app(hub, role_default, info, live=None):
                     if hub.update:
                         hub.update()
                     continue
+                if role == "pc" and msg.get("t") == "uninstall":
+                    if updates.run_uninstaller() and hub.on_win:
+                        hub.on_win("quit")       # the uninstaller replaces files this app is using
+                    continue
                 if role == "pc" and str(msg.get("t", "")).startswith("wired"):
                     if hub.wired:
                         hub.wired.handle(msg)
@@ -384,7 +388,7 @@ def build_app(hub, role_default, info, live=None):
         return web.json_response(result)
 
     async def api_version(request):
-        return web.json_response({"version": updates.VERSION})
+        return web.json_response({"version": updates.VERSION, "can_uninstall": bool(updates.uninstaller())})
 
     if role_default == "pc":   # these hold the pairing key: never on the phone site, which anyone on the WiFi can reach
         app.router.add_get("/api/info", api_info)

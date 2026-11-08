@@ -40,23 +40,7 @@ def run_elevated(exe, params, cwd=None):
 
 # ---------------------------------------------------------------- detection (no admin needed)
 def cam_installed():
-    try:
-        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, VIDEO_INPUT_CATEGORY) as k:
-            i = 0
-            while True:
-                try:
-                    sub = winreg.EnumKey(k, i)
-                except OSError:
-                    return False
-                i += 1
-                try:
-                    with winreg.OpenKey(k, sub) as s:
-                        if winreg.QueryValueEx(s, "FriendlyName")[0] == CAM_NAME:
-                            return True
-                except OSError:
-                    pass
-    except OSError:
-        return False
+    return bool(_cam_ids())
 
 
 def _cable_endpoints(flow):
@@ -97,8 +81,55 @@ def install_cam(dll_path):
     return run_elevated("regsvr32.exe", f'/s "{dll_path}" "/i:UnityCaptureName={CAM_NAME}"')
 
 
-def uninstall_cam(dll_path):
-    return run_elevated("regsvr32.exe", f'/s /u "{dll_path}"')
+def uninstall_cam():
+    """Asks Windows for permission, then this program removes the camera (see remove_cam)."""
+    return _run_self_elevated("--remove-cam")
+
+
+def _cam_ids():
+    """The registry ids of every camera named ScramicShare Cam (normally just one)."""
+    ids = []
+    try:
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, VIDEO_INPUT_CATEGORY) as k:
+            i = 0
+            while True:
+                try:
+                    sub = winreg.EnumKey(k, i)
+                except OSError:
+                    break
+                i += 1
+                try:
+                    with winreg.OpenKey(k, sub) as s:
+                        if winreg.QueryValueEx(s, "FriendlyName")[0] == CAM_NAME:
+                            ids.append(sub)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return ids
+
+
+def _delete_tree(root, path):
+    try:
+        with winreg.OpenKey(root, path, 0, winreg.KEY_READ | winreg.KEY_WRITE) as k:
+            while True:
+                try:
+                    sub = winreg.EnumKey(k, 0)
+                except OSError:
+                    break
+                _delete_tree(root, path + "\\" + sub)
+        winreg.DeleteKey(root, path)
+    except FileNotFoundError:
+        pass
+
+
+def remove_cam():
+    """Admin only. Does what unregistering the camera file does, so it also works when that file is gone.
+    Only touches cameras named ScramicShare Cam, never one another app registered under its own name."""
+    for cid in _cam_ids():
+        for root, classes in ((winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes"), (winreg.HKEY_CURRENT_USER, r"Software\Classes")):
+            _delete_tree(root, f"{classes}\\{VIDEO_INPUT_CATEGORY}\\{cid}")
+            _delete_tree(root, f"{classes}\\CLSID\\{cid}")
 
 
 def install_mic(setup_exe):
@@ -106,10 +137,20 @@ def install_mic(setup_exe):
     return run_elevated(setup_exe, "-i -h", cwd=str(setup_exe.parent))
 
 
+def uninstall_mic(setup_exe):
+    return run_elevated(setup_exe, "-u -h", cwd=str(setup_exe.parent))
+
+
 def setup(tools, notify):
     """Background helpers for the PC page's Install buttons."""
+    restart = {"mic": False}   # VB-CABLE was removed, but Windows still lists it until a restart
+
     def state():
-        notify({"t": "devices", "cam": "ready" if cam_installed() else "missing", "mic": mic_state()})
+        mic = mic_state()
+        if mic == "missing":
+            restart["mic"] = False
+        notify({"t": "devices", "cam": "ready" if cam_installed() else "missing", "mic": mic,
+                "mic_restart": restart["mic"]})
 
     def wait_for(check, seconds):
         end = time.monotonic() + seconds
@@ -141,22 +182,41 @@ def setup(tools, notify):
                 wait_for(lambda: mic_state() == "ready", 60)
         state()
 
+    def remove_cam_job():
+        if cam_installed() and uninstall_cam():
+            wait_for(lambda: not cam_installed(), 60)
+        state()
+
+    def remove_mic_job():
+        if mic_state() != "missing":
+            tools.fetch("vbcable", wait=True)
+            setup_exe = tools.find("vbcable", "VBCABLE_Setup_x64.exe")
+            if setup_exe and uninstall_mic(setup_exe) and not wait_for(lambda: mic_state() == "missing", 60):
+                restart["mic"] = True
+        state()
+
     def handle(msg):
         a = msg.get("a")
-        job = {"state": state, "install-cam": do_cam, "install-mic": do_mic}.get(a)
+        job = {"state": state, "install-cam": do_cam, "install-mic": do_mic,
+               "remove-cam": remove_cam_job, "remove-mic": remove_mic_job}.get(a)
         if job:
             threading.Thread(target=job, daemon=True, name=f"dev-{a}").start()
 
     return handle
 
 
-def rename_mic_elevated():
-    """Rename the VB-CABLE devices (needs admin): runs this file elevated with --rename-mic."""
-    if getattr(sys, "frozen", False):        # the installed exe: it handles --rename-mic itself
-        return run_elevated(sys.executable, "--rename-mic")
+def _run_self_elevated(flag):
+    """Runs this program again with administrator rights, just for one job (--rename-mic or --remove-cam)."""
+    if getattr(sys, "frozen", False):        # the installed exe: it handles these itself
+        return run_elevated(sys.executable, flag)
     script = str(__import__("pathlib").Path(__file__).resolve())
     exe = sys.executable.replace("pythonw.exe", "python.exe")
-    return run_elevated(exe, f'"{script}" --rename-mic')
+    return run_elevated(exe, f'"{script}" {flag}')
+
+
+def rename_mic_elevated():
+    """Rename the VB-CABLE devices (needs admin)."""
+    return _run_self_elevated("--rename-mic")
 
 
 # ---------------------------------------------------------------- renaming via Windows' audio API
@@ -369,5 +429,16 @@ def rename_mic_command():
         ctypes.windll.user32.MessageBoxW(None, f"Couldn't rename the VB-CABLE devices:\n{e}", "SCraMic Share", 0x10)
 
 
+def remove_cam_command():
+    """--remove-cam: this program restarted with administrator rights, just to remove ScramicShare Cam.
+    The uninstaller runs it too."""
+    try:
+        remove_cam()
+    except Exception as e:
+        ctypes.windll.user32.MessageBoxW(None, f"Couldn't remove ScramicShare Cam:\n{e}", "SCraMic Share", 0x10)
+
+
 if __name__ == "__main__" and "--rename-mic" in sys.argv:
     rename_mic_command()
+if __name__ == "__main__" and "--remove-cam" in sys.argv:
+    remove_cam_command()

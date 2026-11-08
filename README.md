@@ -56,10 +56,18 @@ Camera share and Streamer mode also have a battery-saving dark screen, with a vi
 **Requirements:** Windows 10 or 11 (64-bit), and an iPhone or Android phone with a modern browser.
 
 1. Download `SCraMicShare-Setup-x.x.x.exe` from the [latest release](https://github.com/tasin-py/SCraMic-Share/releases/latest).
-2. Run it. It installs just for you and doesn't need administrator rights.
+2. Run it, and pick where to install it, or keep the suggested folder. It installs just for you and doesn't need administrator rights, so pick a folder you can change, for example `D:\SCraMic Share`, not `C:\Program Files`. Updates install into the same folder.
 
 > [!NOTE]
 > The app isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info**, then **Run anyway**. You can compare the file with the SHA-256 listed on the release first.
+
+To uninstall, use any of these:
+
+- In the app, open **Settings** and click **Uninstall SCraMic Share**.
+- In the Start menu, click **Uninstall SCraMic Share**.
+- In Windows, go to **Settings → Apps → Installed apps** and find **SCraMic Share**.
+
+The uninstaller also offers to remove ScramicShare Cam and Mic, and your settings.
 
 The app checks for new versions each time it starts and tells you when one is available. To update, open **Settings** and click **Update to version x.x.x**. The app downloads the new version, closes, installs it and reopens. Versions before 1.2.2 need one manual download first.
 
@@ -108,6 +116,27 @@ In the app, open **Settings** and click **Install** next to each one. Windows as
 **Using ScramicShare Cam in OBS:** add a **Video Capture Device** and pick **ScramicShare Cam**. In its properties, set **Resolution/FPS Type** to **Custom**, choose your **Resolution**, and set **Video Format** to **ARGB**.
 
 ScramicShare Cam runs at up to 30 fps. For a smoother picture, use OBS Mode.
+
+#### Removing ScramicShare Cam and Mic
+
+They stay installed until you remove them, even after uninstalling the app. To remove them, use any of these:
+
+- **In the app:** open **Settings** and click **Remove** next to each one.
+- **When uninstalling:** answer **Yes** to "Also remove ScramicShare Cam and ScramicShare Mic?".
+- **Without the app:** open **Terminal (Admin)** and run the commands below.
+
+To remove the camera:
+
+```powershell
+Remove-Item 'Registry::HKEY_CLASSES_ROOT\CLSID\{860BB310-5D01-11d0-BD3B-00A0C911CE86}\Instance\{5C2CD55C-92AD-4999-8666-912BD3E70010}' -Recurse
+Remove-Item 'Registry::HKEY_CLASSES_ROOT\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}' -Recurse
+```
+
+These commands only remove the camera named ScramicShare Cam. Other cameras aren't affected.
+
+To remove the mic, download [VB-CABLE](https://vb-audio.com/Cable/), run its setup as administrator, click **Remove Driver**, then restart Windows.
+
+ScramicShare Mic is VB-CABLE, so removing it also removes VB-CABLE from other apps that use it.
 
 ### OBS Mode
 
