@@ -58,6 +58,8 @@ Camera share and Streamer mode also have a battery-saving dark screen, with a vi
 1. Download `SCraMicShare-Setup-x.x.x.exe` from the [latest release](https://github.com/tasin-py/SCraMic-Share/releases/latest).
 2. Run it, and pick where to install it, or keep the suggested folder. It installs just for you and doesn't need administrator rights, so pick a folder you can change, for example `D:\SCraMic Share`, not `C:\Program Files`. Updates install into the same folder.
 
+Only one copy of the app runs at a time. If you open it again while it's already open, the open window comes to the front.
+
 > [!NOTE]
 > The app isn't code-signed yet, so Windows may show **"Windows protected your PC"**. Click **More info**, then **Run anyway**. You can compare the file with the SHA-256 listed on the release first.
 
