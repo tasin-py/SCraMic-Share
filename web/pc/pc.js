@@ -120,18 +120,26 @@ askForUpdate().then(r => {
 });
 
 // ---------------------------------------------------------------- pairing info
-let pairingLoaded = false;
+// The PC can have several addresses (WiFi, cable, VPN, virtual adapters). The QR code shows the likeliest one,
+// and each other one is a button that puts it in the QR code instead. Looked up again every time this
+// screen opens, since the PC may have changed networks.
+let pairUrl = '';
+async function showPairUrl(url) {
+  pairUrl = url;
+  $('qr').innerHTML = await (await fetch('/api/qr.svg?text=' + encodeURIComponent(url))).text();
+  $('url').textContent = url.replace(/\/$/, '');
+  document.querySelectorAll('#others .addr').forEach(b => b.classList.toggle('on', b.dataset.url === url));
+}
 async function loadPairing() {
-  if (pairingLoaded) return;
   try {
     const info = await (await fetch('/api/info')).json();
-    $('qr').innerHTML = await (await fetch('/api/qr.svg')).text();
-    $('url').textContent = info.url.replace(/\/$/, '');
-    if (info.others.length) {
-      $('others').innerHTML = info.others.map(u => u.replace(/\/$/, '')).join('<br>');
-      $('othersWrap').classList.remove('hidden');
-    }
-    pairingLoaded = true;
+    const all = [info.url, ...info.others];
+    $('others').innerHTML = all.length > 1
+      ? all.map(u => `<button class="addr" data-url="${u}">${u.replace(/^https:\/\//, '').replace(/[:/].*$/, '')}</button>`).join('')
+      : '';
+    $('others').querySelectorAll('.addr').forEach(b => b.onclick = () => showPairUrl(b.dataset.url));
+    $('othersWrap').classList.toggle('hidden', all.length < 2);
+    await showPairUrl(all.includes(pairUrl) ? pairUrl : info.url);
   } catch (e) { setTimeout(loadPairing, 1000); }
 }
 

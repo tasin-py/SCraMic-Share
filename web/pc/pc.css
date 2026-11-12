@@ -42,7 +42,11 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .url { font-size: 16px; font-weight: 600; user-select: text; -webkit-user-select: text; color: var(--text); }
 .others { color: var(--muted); font-size: 13px; text-align: center; }
 .others summary { cursor: pointer; }
-.others div { margin-top: 6px; user-select: text; -webkit-user-select: text; line-height: 1.8; }
+.others div { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.others .addr { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--line, #333); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.others .addr:hover { border-color: var(--muted); }
+.others .addr.on { border-color: var(--accent); color: var(--accent); }
+.others p { margin: 8px 0 0; font-size: 12px; }
 
 .pair-info { max-width: 430px; }
 .status { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; margin-bottom: 20px; }

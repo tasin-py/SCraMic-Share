@@ -83,7 +83,9 @@ def all_ips():
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             ip = info[4][0]
-            if not ip.startswith("127.") and ip not in ips:
+            # 169.254.x.x: an adapter that got no address from a network (VMware, Hyper-V, WiFi that isn't
+            # connected). No phone can reach it, so offering it only sends people to a dead address.
+            if not ip.startswith(("127.", "169.254.")) and ip not in ips:
                 ips.append(ip)
     except OSError:
         pass
@@ -133,6 +135,13 @@ def ensure_cert(ips):
     crt.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     meta.write_text(json.dumps(want))
     return crt, key
+
+
+def phone_addresses(ips=None):
+    """The phone site's address on each of this PC's networks. The first is the one the QR code shows."""
+    ips = (all_ips() if ips is None else ips) or ["127.0.0.1"]
+    urls = [f"https://{i}:{PHONE_PORT}/?k={TOKEN}" for i in ips]
+    return {"url": urls[0], "ip": ips[0], "others": urls[1:]}
 
 
 def qr_svg(text):
@@ -272,6 +281,9 @@ def build_app(hub, role_default, info, live=None):
                                 headers={"Cache-Control": "no-store"})
 
     async def api_info(request):
+        # Looked up again each time the Wireless screen opens: the PC may have joined
+        # another WiFi, or got a new address, since the app started.
+        info.update(phone_addresses())
         return web.json_response(info)
 
     async def api_qr(request):
@@ -409,12 +421,7 @@ class Server:
         self.hub = Hub()
         self.loop = asyncio.new_event_loop()
         self.ips = all_ips()
-        ip = self.ips[0] if self.ips else "127.0.0.1"
-        self.info = {
-            "url": f"https://{ip}:{PHONE_PORT}/?k={TOKEN}",
-            "ip": ip,
-            "others": [f"https://{i}:{PHONE_PORT}/?k={TOKEN}" for i in self.ips[1:]],
-        }
+        self.info = phone_addresses(self.ips)
         self.ready = threading.Event()
         self.error = None
 
