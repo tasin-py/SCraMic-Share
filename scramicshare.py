@@ -143,7 +143,7 @@ def self_check(report):
         os._exit(code)
 
     try:
-        for name in ("control", "receivers", "rotateview", "teacher", "tools", "unitycam", "updates", "vdevices", "wired",
+        for name in ("control", "netcheck", "receivers", "rotateview", "teacher", "tools", "unitycam", "updates", "vdevices", "wired",
                      "cryptography", "mss", "numpy", "PIL.Image", "qrcode.image.svg"):
             importlib.import_module(name)
         for path in ("web/pc/index.html", "web/pc/pc.js", "web/phone/index.html", "web/phone/teacher.html",

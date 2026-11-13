@@ -51,6 +51,11 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .pair-info { max-width: 430px; }
 .status { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; margin-bottom: 20px; }
 .steps { margin: 0; padding-left: 20px; color: #cfcfcf; }
+.net-warn { margin-top: 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255, 122, 26, 0.35); background: rgba(255, 122, 26, 0.07); color: #cfcfcf; font-size: 13px; line-height: 1.5; }
+.net-warn .net-head { color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.net-warn p { margin: 6px 0 0; }
+.net-warn p.small { color: var(--muted); font-size: 12px; }
+.net-warn .btn { margin-top: 8px; }
 .steps li { margin-bottom: 12px; padding-left: 4px; }
 .steps li::marker { color: var(--accent); font-weight: 700; }
 .steps b { color: var(--text); font-weight: 600; }

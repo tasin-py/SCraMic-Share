@@ -140,7 +140,50 @@ async function loadPairing() {
     $('others').querySelectorAll('.addr').forEach(b => b.onclick = () => showPairUrl(b.dataset.url));
     $('othersWrap').classList.toggle('hidden', all.length < 2);
     await showPairUrl(all.includes(pairUrl) ? pairUrl : info.url);
+    checkNetwork();
   } catch (e) { setTimeout(loadPairing, 1000); }
+}
+
+// ---------------------------------------------------------------- what might block the phone
+// Antivirus firewalls can't be changed by other apps, so for those the app says where to change it.
+const FW_STEPS = [
+  [/avast|avg/i, (n, net) => `Open ${n}, go to <b>Protection → Firewall</b>, and set ${net} to <b>Private</b>. Or, in the firewall's <b>Application rules</b>, allow SCraMic Share.`],
+  [/norton/i, n => `Open ${n}, go to <b>Settings → Firewall → Program Control</b>, add SCraMic Share and set it to <b>Allow</b>.`],
+  [/kaspersky/i, (n, net) => `Open ${n}, go to <b>Settings → Security settings → Firewall → Networks</b>, and set ${net} to <b>Local network</b> or <b>Trusted</b>.`],
+  [/bitdefender/i, (n, net) => `Open ${n}, go to <b>Protection → Firewall → Settings</b>, and set ${net} to <b>Home/Office</b>.`],
+  [/eset/i, (n, net) => `Open ${n}, go to <b>Setup → Network protection → Connected networks</b>, and set ${net} to <b>Trusted</b>.`],
+  [/mcafee/i, n => `Open ${n}, go to <b>Firewall → Ports and system services</b> or <b>Net Guard</b>, and allow SCraMic Share.`],
+];
+let netTimer = null;
+async function checkNetwork(again = 0) {
+  clearTimeout(netTimer);
+  let n;
+  try { n = await (await fetch('/api/net?ip=' + encodeURIComponent(new URL(pairUrl).hostname))).json(); } catch (e) { return; }
+  const net = n.network ? `the network <b>${esc(n.network)}</b>` : 'this network';
+  const parts = [];
+  for (const name of n.firewalls) {
+    const steps = (FW_STEPS.find(([re]) => re.test(name)) || [, nm => `Open ${nm} and find its <b>Firewall</b> settings. Set ${net} to <b>Private</b> (or <b>Home</b> / <b>Trusted</b>), or allow SCraMic Share.`])[1];
+    parts.push(`<p><b>${esc(name)}</b> has its own firewall, which can stop your phone from connecting` +
+      (n.category === 'Public' ? `, because ${net} is set to <b>Public</b>` : '') + `.</p><p>${steps(esc(name), net)}</p>`);
+  }
+  if (n.windowsBlocks) {
+    parts.push(`<p><b>Windows Firewall</b> is blocking your phone.</p>
+      <button class="btn" id="netAllow">Allow through Windows Firewall</button><p class="small">Windows asks for permission.</p>`);
+  }
+  if (n.firewalls.length && n.category === 'Public') {
+    parts.push(`<p class="small">Only do this on your own WiFi. On a café or hotel WiFi, use Wired mode instead.</p>`);
+  }
+  const box = $('netWarn');
+  box.innerHTML = parts.length ? `<div class="net-head">If your phone can't connect</div>${parts.join('')}` : '';
+  box.classList.toggle('hidden', !parts.length || phoneConnected);
+  if ($('netAllow')) $('netAllow').onclick = () => {
+    $('netAllow').disabled = true;
+    $('netAllow').textContent = 'Approve in Windows…';
+    send({ t: 'allow-app-firewall' });
+    netTimer = setTimeout(() => checkNetwork(1), 4000);
+  };
+  // After Allow: look again until the rule is there, for about a minute
+  if (again && n.windowsBlocks && again < 15) netTimer = setTimeout(() => checkNetwork(again + 1), 4000);
 }
 
 // ---------------------------------------------------------------- socket
@@ -171,6 +214,7 @@ function setPhone(connected, info) {
     ? '<span class="dot live"></span><span>Phone connected</span>'
     : '<span class="dot wait"></span><span>Waiting for your phone…</span>';
   $('steps').classList.toggle('hidden', connected);
+  $('netWarn').classList.toggle('hidden', connected || !$('netWarn').innerHTML);
   $('connected').classList.toggle('hidden', !connected);
   $('wConnected').classList.toggle('hidden', !connected);
   if (connected) $('phoneName').textContent = $('wPhoneName').textContent = phoneName(info && info.ua);

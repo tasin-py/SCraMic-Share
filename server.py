@@ -243,6 +243,10 @@ def build_app(hub, role_default, info, live=None):
                     if updates.run_uninstaller() and hub.on_win:
                         hub.on_win("quit")       # the uninstaller replaces files this app is using
                     continue
+                if role == "pc" and msg.get("t") == "allow-app-firewall":
+                    import netcheck, vdevices
+                    netcheck.allow_in_windows_firewall(vdevices.run_elevated)
+                    continue
                 if role == "pc" and str(msg.get("t", "")).startswith("wired"):
                     if hub.wired:
                         hub.wired.handle(msg)
@@ -285,6 +289,13 @@ def build_app(hub, role_default, info, live=None):
         # another WiFi, or got a new address, since the app started.
         info.update(phone_addresses())
         return web.json_response(info)
+
+    async def api_net(request):
+        import netcheck
+        ip = request.query.get("ip") or info["ip"]
+        if ip not in all_ips():   # only this PC's own addresses
+            ip = info["ip"]
+        return web.json_response(await asyncio.get_running_loop().run_in_executor(None, netcheck.check, ip))
 
     async def api_qr(request):
         text = request.query.get("text", "")[:300] or info["url"]
@@ -405,6 +416,7 @@ def build_app(hub, role_default, info, live=None):
     if role_default == "pc":   # these hold the pairing key: never on the phone site, which anyone on the WiFi can reach
         app.router.add_get("/api/info", api_info)
         app.router.add_get("/api/qr.svg", api_qr)
+        app.router.add_get("/api/net", api_net)
         app.router.add_get("/api/wired", api_wired)
         app.router.add_get("/api/update", api_update)
         app.router.add_get("/api/version", api_version)
