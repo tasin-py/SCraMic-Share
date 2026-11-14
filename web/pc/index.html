@@ -127,7 +127,6 @@
   <div class="livebar">
     <div class="pill"><span class="dot live"></span><span id="liveTitle">Camera</span></div>
     <div class="chips">
-      <span class="chip batt hidden" data-batt title="Phone battery"></span>
       <span class="chip hidden" id="chipMic"><i data-ic="mic"></i><span>Mic on</span></span>
       <span class="chip hidden" id="chipMuted"><i data-ic="micOff"></i><span>Muted</span></span>
       <span class="chip hidden" id="chipDark"><i data-ic="moon"></i><span>Phone screen off</span></span>
@@ -137,6 +136,7 @@
         <label>FPS <select id="qFps"></select></label>
         <span class="q-now" id="qNow"></span>
       </div>
+      <span class="chip batt hidden" data-batt title="Phone battery"></span>
     </div>
     <div class="live-actions">
       <button class="btn hidden" id="recBtn" title="Record this video to your PC"><i data-ic="record"></i><span id="recLabel">Record</span></button>
@@ -176,6 +176,27 @@
       <p class="ver" id="appVer"></p>
       <button class="link-btn hidden" id="uninstallApp">Uninstall SCraMic Share</button>
     </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="iosSetup">
+  <div class="sheet guide ios-guide">
+    <button class="iconbtn close" data-close title="Close"><i data-ic="close"></i></button>
+    <h2>Show Charge Percentage</h2>
+    <p class="sub">iPhone browsers don't share the battery, so this PC asks the iPhone directly. Set it up once with the iPhone's cable. After that the battery shows over WiFi.</p>
+    <ol class="isteps">
+      <li data-step="service"><span class="st"></span><div><b>Apple's iPhone driver</b><span class="d"></span></div></li>
+      <li data-step="cable"><span class="st"></span><div><b>Plug the iPhone into this PC</b> with its cable, and unlock it<span class="d"></span></div></li>
+      <li data-step="trust"><span class="st"></span><div><b>Trust this PC</b> on the iPhone<span class="d"></span></div></li>
+      <li data-step="wifi"><span class="st"></span><div><b>WiFi access</b>, so you can unplug later. The app turns it on<span class="d"></span></div></li>
+    </ol>
+    <button class="btn primary hidden" id="iosStore" data-link="https://apps.microsoft.com/detail/9np83lwlpz9k">Get Apple Devices</button>
+    <div class="ios-done hidden" id="iosDone">
+      <span id="iosDoneBatt" class="batt"></span>
+      <p>All set. You can unplug the cable: the battery keeps showing while the iPhone and this PC are on the same WiFi.</p>
+    </div>
+    <p class="wnote hidden" id="iosEnd"></p>
+    <button class="btn hidden" id="iosRetry">Try again</button>
   </div>
 </div>
 

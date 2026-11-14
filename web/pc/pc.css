@@ -96,7 +96,9 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 @keyframes rec { 50% { opacity: .35; } }
 .sheet.ask .ask-row { display: flex; gap: 10px; margin-top: 8px; }
 .pill { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px; }
-.chips { display: flex; gap: 8px; flex: 1; }
+.chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex: 1; }
+.chip.batt { font-variant-numeric: tabular-nums; }
+.phone-card .batt.na { font-weight: 400; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 99px;
   background: var(--panel-2); color: #d6d6d6; font-size: 13px; font-weight: 500;
@@ -208,3 +210,43 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .dev-note { color: #6d6d6d; font-size: 12px; margin: 4px 2px 0; }
 .link-btn { background: none; border: 0; padding: 4px 8px; margin-top: 6px; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .link-btn:hover { color: #ff8a8b; }
+
+/* ---------- phone battery: the check-now button, and the iPhone guide ---------- */
+.batt-sync {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; margin-left: 2px; border-radius: 8px; padding: 0;
+  color: var(--muted); background: transparent; border: 1px solid transparent; transition: background .15s, color .15s;
+}
+.batt-sync:hover { background: var(--panel-2); border-color: var(--line-2); color: var(--text); }
+.batt-sync svg { width: 20px; height: 20px; }
+.batt-sync.syncing { color: var(--accent); }
+.batt-sync.syncing .spin { transform-origin: 10px 12px; transform-box: view-box; animation: batt-spin 1s linear infinite; }
+@keyframes batt-spin { to { transform: rotate(360deg); } }
+.batt.na .ios-setup-btn { height: 30px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.batt.na .ios-setup-btn .batt-ic { width: 20px; height: 20px; }
+.chip.batt.na { padding: 0; background: none; border: 0; }
+.ios-guide { width: 470px; }
+.ios-guide .sub { margin-bottom: 16px; }
+.isteps { list-style: none; margin: 0 0 6px; padding: 0; width: 100%; counter-reset: is; }
+.isteps li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); counter-increment: is; color: var(--muted); }
+.isteps li:first-child { border-top: 0; }
+.isteps li b { color: #cfcfcf; font-weight: 600; }
+.isteps .d { display: block; margin-top: 3px; font-size: 13px; }
+.isteps .d:empty { display: none; }
+.isteps .st {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; border: 1.5px solid var(--line-2); color: var(--muted);
+}
+.isteps .st::before { content: counter(is); }
+.isteps li.active { color: var(--text); }
+.isteps li.active b { color: var(--text); }
+.isteps li.active .st { border-color: var(--accent); color: var(--accent); }
+.isteps li.done .st { background: var(--ok); border-color: var(--ok); color: #111; }
+.isteps li.done .st::before { content: "\2713"; }
+.isteps li.warn .st { border-color: var(--danger); color: var(--danger); }
+.isteps li.warn .st::before { content: "!"; }
+.isteps li.warn .d, .isteps li.active .d { color: #e6e6e6; }
+.ios-done { width: 100%; margin-top: 8px; padding: 14px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); text-align: center; }
+.ios-done .batt { font-size: 18px; justify-content: center; }
+.ios-done .batt .batt-ic { width: 30px; height: 30px; }
+.ios-done p { margin: 8px 0 0; color: #cfcfcf; font-size: 13.5px; }
+#iosStore, #iosRetry { margin-top: 10px; }

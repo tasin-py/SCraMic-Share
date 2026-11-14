@@ -2,6 +2,13 @@
 
 Each release's notes on GitHub show its section from this file. Add one for every new version, headed `## x.y.z`.
 
+## 1.2.7
+
+- **iPhone battery:** the PC app now shows an iPhone's battery and whether it's charging, over WiFi too. iPhone browsers don't share the battery, so the app asks the iPhone through Apple's iPhone service (from the Apple Devices app or iTunes).
+  - Click **Show Charge Percentage** next to the iPhone's name. A guide walks you through it and notices each step by itself: Apple's driver, the cable, then **Trust** on the iPhone. The app then turns on WiFi access on the iPhone, so you can unplug the cable. From then on the battery shows over WiFi, while the iPhone and PC are on the same WiFi.
+- **Check the battery now:** a small battery button next to the battery level checks it right away, then every second for 15 seconds. Handy to see whether the phone started charging. Otherwise an iPhone's battery is checked every 20 seconds.
+- **Battery while streaming:** the phone's battery now sits right next to the Resolution and FPS controls under the video.
+
 ## 1.2.6
 
 - **Phone battery:** the PC app now shows your phone's battery level, and whether it's charging, next to the phone's name and under the video. This works on Android phones. iPhone browsers don't share the battery level, so it doesn't show for iPhones.

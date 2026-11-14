@@ -240,24 +240,130 @@ function battIcon(level, charging) {
     `<rect x="20" y="10" width="2" height="4" rx="0.8" fill="currentColor"/><rect x="4" y="9" width="${w}" height="6" rx="1" fill="${fill}"/>` +
     (charging ? `<path d="M12.6 5.2 7.4 12.6h3.6l-1.6 6.2 5.2-7.4H11z" fill="currentColor" stroke="var(--panel)" stroke-width="1.2" stroke-linejoin="round"/>` : '') + `</svg>`;
 }
+let phoneIsIos = false;
+// Why the PC can't read the iPhone's battery yet, and what to do: [the note, the longer tip]
+const IOS_BATT = {
+  wait: ["Looking for the iPhone's battery…", "The PC reads it through Apple's iPhone service, over WiFi or the cable."],
+  none: ['Plug the iPhone into this PC once to see its battery over WiFi',
+    "iPhone browsers don't share the battery, so the PC asks the iPhone through Apple's service. Plug it in once with a cable " +
+    '(tap Trust if it asks): the app then turns on WiFi connections on the iPhone, and the battery shows over WiFi from then on, ' +
+    'while the iPhone and PC are on the same WiFi.'],
+  driver: ["Install Apple Devices (or iTunes) to see the iPhone's battery",
+    "iPhone browsers don't share the battery, so the PC asks the iPhone through Apple's iPhone service, which comes with " +
+    'the Apple Devices app from the Microsoft Store, or iTunes.'],
+  trust: ['Unlock the iPhone and tap Trust to see its battery',
+    "The iPhone was found but won't answer this PC yet. Plug it in, unlock it and tap Trust when it asks."],
+};
+let iosWhy = 'wait';
+let lastBatt = null;
+let syncUntil = 0, syncTimer = 0;
+const SYNC_IC = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="15" height="10" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/>` +
+  `<rect x="18" y="10" width="2" height="4" rx="0.8" fill="currentColor"/>` +
+  `<g class="spin"><path d="M12.4 10.4a3 3 0 1 0 .4 2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>` +
+  `<path d="M12.8 8.6v2h-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`;
 function setBattery(b) {
+  if (b && b.why) iosWhy = IOS_BATT[b.why] ? b.why : 'trust';
   const ok = b && Number.isFinite(b.level);
+  lastBatt = ok ? b : null;
   const level = ok ? Math.max(0, Math.min(100, Math.round(b.level))) : 0;
+  const syncing = Date.now() < syncUntil;
   document.querySelectorAll('[data-batt]').forEach(el => {
-    el.classList.toggle('hidden', !ok);
+    // An iPhone can't send it: the PC asks the iPhone. Until it can, say why, with the guide that fixes it.
+    const na = !ok && phoneIsIos && phoneConnected && (iosWhy !== 'wait' || !el.classList.contains('chip'));
+    el.classList.toggle('na', na);
+    el.classList.toggle('hidden', !ok && !na);
+    if (na) {
+      el.classList.remove('charging', 'low');
+      const [note, tip] = IOS_BATT[iosWhy];
+      el.innerHTML = iosWhy === 'wait' ? `<span>${note}</span>`
+        : `<button class="btn small ios-setup-btn" data-ios-setup>${battIcon(50, false)}<span>Show Charge Percentage</span></button>`;
+      el.title = iosWhy === 'wait' ? tip : `${note}. ${tip}`;
+    }
     if (!ok) return;
-    el.innerHTML = `${battIcon(level, b.charging)}<span>${level}%${b.charging ? ' · Charging' : ''}</span>`;
+    el.innerHTML = `${battIcon(level, b.charging)}<span>${level}%${b.charging ? ' · Charging' : ''}</span>` +
+      `<button class="batt-sync${syncing ? ' syncing' : ''}" data-batt-sync title="Check the battery now, then every second for 15 seconds">${SYNC_IC}</button>`;
+    if (b.usb) iosWhy = 'wait';
     el.classList.toggle('charging', !!b.charging);
     el.classList.toggle('low', !b.charging && level <= 20);
     el.title = `Phone battery: ${level}%, ${b.charging ? 'charging' : 'not charging'}`;
   });
 }
+// The battery button: the PC reads an iPhone every second for 15 seconds; an Android phone sends it again.
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-batt-sync]')) {
+    send({ t: 'battery-now' });
+    syncUntil = Date.now() + 15000;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => setBattery(lastBatt), 15100);
+    setBattery(lastBatt);
+  } else if (e.target.closest('[data-ios-setup]')) {
+    openIosSetup();
+  }
+});
+
+// ---------------------------------------------------------------- "Show Charge Percentage" guide (iPhone)
+const IOS_STEPS = ['service', 'cable', 'trust', 'wifi'];
+const IOS_TEXT = {
+  'service:checking': ['', 'Checking…'],
+  'service:missing': ['warn', "Not found. Install the free <b>Apple Devices</b> app from the Microsoft Store (or iTunes). This guide carries on by itself once it's installed."],
+  'service:ok': ['done', 'Found.'],
+  'cable:waiting': ['active', 'Waiting for the iPhone on the cable…'],
+  'cable:ok': ['done', 'iPhone found on the cable.'],
+  'trust:asking': ['active', 'Look at the iPhone: tap <b>Trust</b>, then enter its passcode.'],
+  'trust:locked': ['active', 'Unlock the iPhone. Then it asks whether to trust this PC.'],
+  'trust:denied': ['warn', "The iPhone said Don't Trust. Unplug it, plug it back in, and tap <b>Trust</b>."],
+  'trust:error': ['warn', "The iPhone didn't answer. Unplug it and plug it back in."],
+  'trust:ok': ['done', 'This PC is trusted.'],
+  'wifi:on': ['done', 'Turned on by the app. The battery now shows over WiFi too.'],
+  'wifi:off': ['warn', "Couldn't turn it on, so the battery shows only while the cable is plugged in."],
+};
+function iosStep(name, key) {
+  const li = $('iosSetup').querySelector(`[data-step="${name}"]`);
+  const [cls, text] = IOS_TEXT[key] || ['', ''];
+  li.className = cls;
+  li.querySelector('.d').innerHTML = text;
+}
+function renderIosSetup(m) {
+  const at = m.step === 'done' ? IOS_STEPS.length : m.step === 'end' ? -1 : IOS_STEPS.indexOf(m.step);
+  if (at >= 0) IOS_STEPS.forEach((s, i) => {
+    if (i < at) iosStep(s, s === 'wifi' ? (m.wifi ? 'wifi:on' : 'wifi:off') : s + ':ok');
+    else if (i === at) iosStep(s, `${s}:${m.state}`);
+    else iosStep(s, '');
+  });
+  $('iosStore').classList.toggle('hidden', !(m.step === 'service' && m.state === 'missing'));
+  const done = m.step === 'done';
+  $('iosDone').classList.toggle('hidden', !done);
+  if (done) {
+    const b = m.battery || {};
+    $('iosDoneBatt').innerHTML = `${battIcon(b.level, b.charging)}<span>${b.level}%${b.charging ? ' · Charging' : ''}</span>`;
+    $('iosDoneBatt').className = 'batt' + (b.charging ? ' charging' : '');
+  }
+  $('iosRetry').classList.toggle('hidden', m.step !== 'end');
+  $('iosEnd').classList.toggle('hidden', m.step !== 'end');
+  if (m.step === 'end') $('iosEnd').textContent = m.state === 'timeout'
+    ? 'Stopped waiting after 5 minutes.' : 'Something went wrong.';
+}
+function openIosSetup() {
+  openModal('iosSetup');
+  renderIosSetup({ step: 'service', state: 'checking' });
+  send({ t: 'ios-setup', a: 'start' });
+}
+$('iosRetry').onclick = () => openIosSetup();
+// However the guide closes (X, Escape, a click outside), stop looking for the iPhone.
+new MutationObserver(() => {
+  if ($('iosSetup').classList.contains('hidden')) send({ t: 'ios-setup', a: 'stop' });
+}).observe($('iosSetup'), { attributes: true, attributeFilter: ['class'] });
 
 function handle(m) {
   switch (m.t) {
     case 'update-state': renderUpdate(m); break;
-    case 'peer': setPhone(m.connected, m.info); if (!m.connected) setBattery(null); break;
-    case 'battery': setBattery(m); break;
+    case 'peer':
+      phoneIsIos = !!(m.connected && m.info && /iPhone|iPad|Macintosh.*Mobile/.test(m.info.ua || ''));
+      setPhone(m.connected, m.info);
+      if (!m.connected || phoneIsIos) { iosWhy = 'wait'; setBattery(null); }
+      break;
+    case 'battery': setBattery(m.gone ? (m.why ? { why: m.why } : null) : m); break;
+    case 'ios-setup': renderIosSetup(m); break;
     case 'feature': startFeature(m.f, m.wired, m); break;
     case 'wired': renderWired(m); break;
     case 'rx-state': renderRx(m); break;

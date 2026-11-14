@@ -88,6 +88,7 @@ function handle(m) {
       }
       break;
     case 'answer': onAnswer(m); break;
+    case 'battery-now': sendBattery(); break;   // the PC's battery button
     case 'stream-set': if (feature === 'streamer') setStream(m.res, m.fps); break;
     case 'stream-stats': if (feature === 'streamer') { pcSees = m.text || ''; showStreamText(); } break;
     case 'ice': if (rtc && m.c) rtc.addIceCandidate(m.c).catch(() => {}); break;

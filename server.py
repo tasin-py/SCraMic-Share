@@ -17,6 +17,7 @@ import secrets
 import socket
 import ssl
 import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -39,6 +40,7 @@ ALLOWED_LINKS = (
     "https://instagram.com/tasin.py/",
     "https://github.com/tasin-py",
     "https://www.supportkori.com/tasinpy",
+    "https://apps.microsoft.com/detail/9np83lwlpz9k",   # Apple Devices, for an iPhone's battery
 )
 
 
@@ -165,6 +167,10 @@ class Hub:
         self.dev = None         # ScramicShare Cam / Mic install actions
         self.vcam = None        # frames -> ScramicShare Cam
         self.update = None      # the Update button in Settings
+        self.batt_kick = threading.Event()   # the battery button: read the iPhone's battery now
+        self.batt_fast_until = 0.0           # ...and every second until then
+        self.ios_setup_stop = None           # the running "Show Charge Percentage" guide, if any
+        self.ios_setup = None                # starts or stops it
 
     async def send(self, ws, msg):
         if ws is not None and not ws.closed:
@@ -242,6 +248,15 @@ def build_app(hub, role_default, info, live=None):
                 if role == "pc" and msg.get("t") == "uninstall":
                     if updates.run_uninstaller() and hub.on_win:
                         hub.on_win("quit")       # the uninstaller replaces files this app is using
+                    continue
+                if role == "pc" and msg.get("t") == "battery-now":
+                    hub.batt_fast_until = time.time() + 15     # an iPhone: read it every second for 15 s
+                    hub.batt_kick.set()
+                    await hub.send(hub.phone, msg)              # an Android phone: send it again now
+                    continue
+                if role == "pc" and msg.get("t") == "ios-setup":
+                    if hub.ios_setup:
+                        hub.ios_setup(msg.get("a") == "start")
                     continue
                 if role == "pc" and msg.get("t") == "allow-app-firewall":
                     import netcheck, vdevices
@@ -484,12 +499,67 @@ class Server:
         self.hub.dev = vdevices.setup(tools, notify)
         self.hub.vcam = vdevices.VirtualCam()
 
+        threading.Thread(target=self._iphone_battery, args=(notify,), daemon=True, name="ios-battery").start()
+        self.hub.ios_setup = lambda start: self._ios_setup(start, notify)
+
         updates.clean()   # the installer from the last update, if there was one
         def close_app():
             if self.hub.on_win:
                 self.hub.on_win("quit")
         self.hub.update = lambda: threading.Thread(target=updates.install_update, args=(notify, close_app),
                                                    daemon=True, name="update").start()
+
+    def _iphone_battery(self, notify):
+        """iPhone browsers can't send the battery like Android ones do, so while an iPhone is connected,
+        ask the iPhone itself, with this PC's pair record: over the cable, or over WiFi once it has been
+        plugged in once. When that can't work, the page is told why, so it can say what to do."""
+        import time
+        import iosbattery
+        import re as _re
+        last = None
+        while True:
+            fast = time.time() < self.hub.batt_fast_until
+            self.hub.batt_kick.wait(1 if fast else 20 if last else 6)   # the battery button cuts this short
+            self.hub.batt_kick.clear()
+            ua = self.hub.phone_info.get("ua", "") if self.hub.phone is not None else ""
+            if not _re.search(r"iPhone|iPad|Macintosh.*Mobile", ua):
+                last = None
+                continue
+            try:
+                b = iosbattery.battery(self.hub.phone_info.get("ip"))
+            except Exception as e:
+                why = getattr(e, "why", "trust")
+                notify({"t": "battery", "usb": True, "gone": True, "why": why})
+                last = None
+                continue
+            notify({"t": "battery", "usb": True, **b})   # every time: a reopened PC page needs it too
+            last = b
+
+    def _ios_setup(self, start, notify):
+        """The "Show Charge Percentage" guide: finds the iPhone on the cable, asks it to trust this PC,
+        turns on its WiFi connections and reads the battery, telling the page each step."""
+        import iosbattery
+        if self.hub.ios_setup_stop:
+            self.hub.ios_setup_stop.set()
+            self.hub.ios_setup_stop = None
+        if not start:
+            return
+        stop = threading.Event()
+        self.hub.ios_setup_stop = stop
+
+        def progress(step, state, **extra):
+            if not stop.is_set():
+                notify({"t": "ios-setup", "step": step, "state": state, **extra})
+            if step == "done":
+                notify({"t": "battery", "usb": True, **extra.get("battery", {}), "via": "USB"})
+                self.hub.batt_kick.set()
+
+        def run():
+            try:
+                iosbattery.setup(progress, stop)
+            except Exception:
+                progress("end", "error")
+        threading.Thread(target=run, daemon=True, name="ios-setup").start()
 
     @property
     def pc_url(self):
