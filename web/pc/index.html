@@ -61,7 +61,7 @@
       <div class="connected hidden" id="connected">
         <div class="phone-card">
           <span class="mode-ic"><i data-ic="phone"></i></span>
-          <div><b id="phoneName">Phone</b><span>Pick a feature on your phone to start.</span></div>
+          <div><b><span id="phoneName">Phone</span><em class="batt hidden" data-batt title="Phone battery"></em></b><span>Pick a feature on your phone to start.</span></div>
         </div>
         <button class="btn danger" id="kickPhone"><i data-ic="power"></i>Disconnect phone</button>
       </div>
@@ -91,7 +91,7 @@
     <div class="connected hidden wired-connected" id="wConnected">
       <div class="phone-card">
         <span class="mode-ic"><i data-ic="phone"></i></span>
-        <div><b id="wPhoneName">Phone</b><span>Connected. Pick Wired, then a feature on your phone.</span></div>
+        <div><b><span id="wPhoneName">Phone</span><em class="batt hidden" data-batt title="Phone battery"></em></b><span>Connected. Pick Wired, then a feature on your phone.</span></div>
       </div>
       <button class="btn danger" id="kickPhone3"><i data-ic="power"></i>Disconnect phone</button>
     </div>
@@ -127,6 +127,7 @@
   <div class="livebar">
     <div class="pill"><span class="dot live"></span><span id="liveTitle">Camera</span></div>
     <div class="chips">
+      <span class="chip batt hidden" data-batt title="Phone battery"></span>
       <span class="chip hidden" id="chipMic"><i data-ic="mic"></i><span>Mic on</span></span>
       <span class="chip hidden" id="chipMuted"><i data-ic="micOff"></i><span>Muted</span></span>
       <span class="chip hidden" id="chipDark"><i data-ic="moon"></i><span>Phone screen off</span></span>

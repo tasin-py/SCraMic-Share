@@ -62,7 +62,13 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 
 .connected { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
 .phone-card { display: flex; gap: 14px; align-items: center; padding: 16px 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); width: 100%; }
-.phone-card b { display: block; font-weight: 650; }
+.phone-card b { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+.batt { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-weight: 500; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.batt .batt-ic { width: 22px; height: 22px; flex: none; }
+.batt.charging { color: var(--ok); }
+.batt.low { color: var(--danger); }
+.phone-card .batt > span:not(.mode-ic) { color: inherit; font-size: 13px; }
+.phone-card b > span:first-child { color: var(--text); font-size: inherit; }
 .phone-card span:not(.mode-ic) { color: var(--muted); font-size: 14px; }
 
 .soon { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 60px; }

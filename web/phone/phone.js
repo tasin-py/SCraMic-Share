@@ -58,10 +58,26 @@ function connect() {
 }
 connect();
 
+// ---------------------------------------------------------------- battery, for the PC to show
+// Android browsers can read it. iPhone browsers have no way to, so the PC just doesn't show it.
+let battery = null;
+function sendBattery() {
+  if (battery) send({ t: 'battery', level: Math.round(battery.level * 100), charging: !!battery.charging });
+}
+if (navigator.getBattery) {
+  navigator.getBattery().then(b => {
+    battery = b;
+    b.addEventListener('levelchange', sendBattery);
+    b.addEventListener('chargingchange', sendBattery);
+    sendBattery();
+  }).catch(() => {});
+}
+
 function handle(m) {
   switch (m.t) {
     case 'peer':
       pcOnline = m.connected;
+      if (pcOnline) sendBattery();   // also when the PC app was reopened
       if (!pcOnline) {
         if (feature) endFeature(false);
         show('sConnect');

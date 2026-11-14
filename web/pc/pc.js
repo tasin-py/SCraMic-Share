@@ -154,18 +154,20 @@ const FW_STEPS = [
   [/eset/i, (n, net) => `Open ${n}, go to <b>Setup → Network protection → Connected networks</b>, and set ${net} to <b>Trusted</b>.`],
   [/mcafee/i, n => `Open ${n}, go to <b>Firewall → Ports and system services</b> or <b>Net Guard</b>, and allow SCraMic Share.`],
 ];
+function antivirusAdvice(n, app = 'SCraMic Share') {
+  const net = n.network ? `the network <b>${esc(n.network)}</b>` : 'this network';
+  return n.firewalls.map(name => {
+    const steps = (FW_STEPS.find(([re]) => re.test(name)) || [, nm => `Open ${nm} and find its <b>Firewall</b> settings. Set ${net} to <b>Private</b> (or <b>Home</b> / <b>Trusted</b>), or allow SCraMic Share.`])[1];
+    return `<p><b>${esc(name)}</b> has its own firewall, which can stop your phone from connecting` +
+      (n.category === 'Public' ? `, because ${net} is set to <b>Public</b>` : '') + `.</p><p>${steps(esc(name), net).replace(/SCraMic Share/g, app)}</p>`;
+  });
+}
 let netTimer = null;
 async function checkNetwork(again = 0) {
   clearTimeout(netTimer);
   let n;
   try { n = await (await fetch('/api/net?ip=' + encodeURIComponent(new URL(pairUrl).hostname))).json(); } catch (e) { return; }
-  const net = n.network ? `the network <b>${esc(n.network)}</b>` : 'this network';
-  const parts = [];
-  for (const name of n.firewalls) {
-    const steps = (FW_STEPS.find(([re]) => re.test(name)) || [, nm => `Open ${nm} and find its <b>Firewall</b> settings. Set ${net} to <b>Private</b> (or <b>Home</b> / <b>Trusted</b>), or allow SCraMic Share.`])[1];
-    parts.push(`<p><b>${esc(name)}</b> has its own firewall, which can stop your phone from connecting` +
-      (n.category === 'Public' ? `, because ${net} is set to <b>Public</b>` : '') + `.</p><p>${steps(esc(name), net)}</p>`);
-  }
+  const parts = antivirusAdvice(n);
   if (n.windowsBlocks) {
     parts.push(`<p><b>Windows Firewall</b> is blocking your phone.</p>
       <button class="btn" id="netAllow">Allow through Windows Firewall</button><p class="small">Windows asks for permission.</p>`);
@@ -229,10 +231,33 @@ function setPhone(connected, info) {
   if (!connected && current === 'live') { endFeature(); show(backTo); toast('Phone disconnected'); }
 }
 
+// ---------------------------------------------------------------- phone battery
+// Sent by Android phones (Chrome and most Android browsers). iPhone browsers can't read the battery, so then nothing shows.
+function battIcon(level, charging) {
+  const w = Math.max(1.5, Math.round(level / 100 * 13 * 10) / 10);
+  const fill = charging ? 'var(--ok)' : level <= 20 ? 'var(--danger)' : 'currentColor';
+  return `<svg class="batt-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/>` +
+    `<rect x="20" y="10" width="2" height="4" rx="0.8" fill="currentColor"/><rect x="4" y="9" width="${w}" height="6" rx="1" fill="${fill}"/>` +
+    (charging ? `<path d="M12.6 5.2 7.4 12.6h3.6l-1.6 6.2 5.2-7.4H11z" fill="currentColor" stroke="var(--panel)" stroke-width="1.2" stroke-linejoin="round"/>` : '') + `</svg>`;
+}
+function setBattery(b) {
+  const ok = b && Number.isFinite(b.level);
+  const level = ok ? Math.max(0, Math.min(100, Math.round(b.level))) : 0;
+  document.querySelectorAll('[data-batt]').forEach(el => {
+    el.classList.toggle('hidden', !ok);
+    if (!ok) return;
+    el.innerHTML = `${battIcon(level, b.charging)}<span>${level}%${b.charging ? ' · Charging' : ''}</span>`;
+    el.classList.toggle('charging', !!b.charging);
+    el.classList.toggle('low', !b.charging && level <= 20);
+    el.title = `Phone battery: ${level}%, ${b.charging ? 'charging' : 'not charging'}`;
+  });
+}
+
 function handle(m) {
   switch (m.t) {
     case 'update-state': renderUpdate(m); break;
-    case 'peer': setPhone(m.connected, m.info); break;
+    case 'peer': setPhone(m.connected, m.info); if (!m.connected) setBattery(null); break;
+    case 'battery': setBattery(m); break;
     case 'feature': startFeature(m.f, m.wired, m); break;
     case 'wired': renderWired(m); break;
     case 'rx-state': renderRx(m); break;
@@ -629,8 +654,10 @@ function renderRotate(m) {
   $('rxControl').checked = m.control !== false;
 }
 
+let rxNet = null, rxNetAsked = false;   // what might block the iPhone, looked up once per AirPlay share
 function renderRx(m) {
   rx = m;
+  if (m.kind !== 'airplay') rxNet = null, rxNetAsked = false;
   if (feature !== 'screen') return;
   renderRotate(m);
   const body = $('remoteBody'), tl = m.tools || {};
@@ -763,14 +790,32 @@ function renderAirplay(m, body) {
   $('remoteText').textContent = `Ready. On the iPhone: Control Center → Screen Mirroring → "${m.airplayName}". The receiver waits in the background, and its window opens after you pick it on the iPhone.`;
   const notes = [`The iPhone must be on the same network as this PC (${esc(a.ip || 'unknown address')}).`];
   if (a.hotspot) notes.push("This PC is on the iPhone's own hotspot. If the name doesn't appear there, connect both to the same WiFi router.");
-  if (!a.bonjour) notes.push('The Bonjour service is not running, and the iPhone needs it to find this PC. Start it from Windows Services.');
+  // Without Bonjour the receiver runs, but the iPhone never sees its name.
+  const warn = [];
+  if (!a.bonjour) {
+    warn.push(`<p><b>Bonjour isn't running</b>, so your iPhone can't see "${esc(m.airplayName)}" in Screen Mirroring.</p>
+      <button class="btn" id="rxBonjour" ${a.bonjourStarting ? 'disabled' : ''}>${a.bonjourStarting ? 'Approve in Windows…' : (a.bonjourMissing ? 'Install and start Bonjour' : 'Start Bonjour')}</button>
+      <p class="small">Windows asks for permission. Bonjour then starts with Windows, so you only do this once.</p>`);
+  }
+  if (rxNet && rxNet.firewalls.length) warn.push(...antivirusAdvice(rxNet, 'SCraMic Share and uxplay-windows'));
+  if (!a.firewallOk) warn.push(`<p><b>Windows Firewall</b> may block the receiver.</p>
+      <button class="btn" id="rxFirewall">Allow through Firewall</button><p class="small">Windows asks for permission.</p>`);
   body.innerHTML = notes.map(n => `<p class="wnote">${n}</p>`).join('') +
-    (a.firewallOk ? '' : '<button class="btn" id="rxFirewall">Allow through Firewall</button>');
-  if (!a.firewallOk) $('rxFirewall').onclick = () => {
+    (warn.length ? `<div class="net-warn"><div class="net-head">If your iPhone can't find this PC</div>${warn.join('')}</div>` : '');
+  if ($('rxBonjour')) $('rxBonjour').onclick = () => {
+    $('rxBonjour').textContent = 'Approve in Windows…';
+    $('rxBonjour').disabled = true;
+    send({ t: 'rx', a: 'start-bonjour' });
+  };
+  if ($('rxFirewall')) $('rxFirewall').onclick = () => {
     $('rxFirewall').textContent = 'Approve in Windows…';
     $('rxFirewall').disabled = true;
     send({ t: 'rx', a: 'allow-firewall' });
   };
+  if (!rxNet && !rxNetAsked) {   // once per AirPlay screen: the check takes a few seconds
+    rxNetAsked = true;
+    fetch('/api/net').then(r => r.json()).then(n => { rxNet = n; if (rx && rx.kind === 'airplay') renderRx(rx); }).catch(() => {});
+  }
   tellPhone(`Ready. Open Control Center → Screen Mirroring → "${m.airplayName}". Your iPhone must be on the same WiFi as the PC.`, true);
 }
 

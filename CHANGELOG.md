@@ -2,6 +2,12 @@
 
 Each release's notes on GitHub show its section from this file. Add one for every new version, headed `## x.y.z`.
 
+## 1.2.6
+
+- **Phone battery:** the PC app now shows your phone's battery level, and whether it's charging, next to the phone's name and under the video. This works on Android phones. iPhone browsers don't share the battery level, so it doesn't show for iPhones.
+- **iPhone screen share:** if Bonjour isn't running, your iPhone can't find the PC in Screen Mirroring. The AirPlay screen now has a **Start Bonjour** button that starts it and sets it to start with Windows. Windows asks for permission.
+- **iPhone screen share:** the AirPlay screen now also warns about antivirus firewalls (Avast and others) and shows how to fix them.
+
 ## 1.2.5
 
 - **Wireless:** if something on the PC is likely to stop the phone from connecting, the Wireless screen now says so and shows how to fix it.

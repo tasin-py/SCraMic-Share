@@ -74,9 +74,22 @@ def _quiet(*cmd):
         return None
 
 
+BONJOUR = "Bonjour Service"
+
+
+def _bonjour_state():
+    """"running", "stopped" or "missing". The iPhone finds the receiver through Bonjour: without it running,
+    the receiver works but nothing tells the network it's there."""
+    r = _quiet("sc", "query", BONJOUR)
+    if not r:
+        return "stopped"
+    if r.returncode == 1060 or "1060" in r.stdout:      # ERROR_SERVICE_DOES_NOT_EXIST
+        return "missing"
+    return "running" if "RUNNING" in r.stdout else "stopped"
+
+
 def _bonjour_running():
-    r = _quiet("sc", "query", "Bonjour Service")
-    return bool(r) and "RUNNING" in r.stdout
+    return _bonjour_state() == "running"
 
 
 def _firewall_rule_exists():
@@ -304,7 +317,8 @@ class Receivers:
         self._miracast_id = None
         self.airplay_failed = ""        # why the receiver isn't running, in words
         self.airplay_up = False
-        self.auto_rotate = True         # the window takes the shape of the phone's picture
+        self.bonjour_starting = False   # waiting for the user to approve starting Bonjour
+        self.auto_rotate = True        # the window takes the shape of the phone's picture
         self.turn = 0                   # manual quarter turns, 0-3
         self.video = None               # the phone's picture size (w, h)
         self.on_view = None             # on_view((hwnd, degrees) or None) -> the turned view
@@ -348,10 +362,13 @@ class Receivers:
     def _airplay_state(self):
         """What the iPhone needs from this PC, so the page can say what is actually wrong."""
         ips = _lan_ips()
+        bonjour = _bonjour_state()
         return {
             "listening": self.airplay_up,
             "failed": self.airplay_failed,
-            "bonjour": _bonjour_running(),
+            "bonjour": bonjour == "running",
+            "bonjourMissing": bonjour == "missing",
+            "bonjourStarting": self.bonjour_starting,
             "firewallOk": _firewall_rule_exists(),
             "ip": _route_ip(),
             "hotspot":any(ip.startswith("172.20.10.") for ip in ips),
@@ -541,6 +558,32 @@ class Receivers:
                 time.sleep(1)
         self._report()
 
+    def start_bonjour(self):
+        """Starts Bonjour, and makes it start with Windows from now on. Windows asks for approval.
+        Without the service, installs the copy of it that comes with the AirPlay receiver.
+        The receiver only announces itself when it starts, so it's restarted once Bonjour is running."""
+        state = _bonjour_state()
+        cmd = f'sc config "{BONJOUR}" start= auto & sc start "{BONJOUR}"'
+        if state == "missing":
+            responder = self.tools.find("uxplay", "mDNSResponder.exe")
+            if not responder:
+                return
+            cmd = f'"{responder}" -install & ' + cmd
+        self.bonjour_starting = True
+        self._report()
+        try:
+            if run_elevated("cmd.exe", "/c " + cmd):
+                end = time.monotonic() + 40
+                while time.monotonic() < end and not _bonjour_running():
+                    time.sleep(1)
+        finally:
+            self.bonjour_starting = False
+        _airplay_log(f"Bonjour: {_bonjour_state()}")
+        if _bonjour_running() and self.kind == "airplay":
+            self.jobs.put((self.start, ("airplay", self.audio, None)))
+        else:
+            self._report()
+
     def _start_scrcpy(self, serial):
         exe = self.tools.find("scrcpy", "scrcpy.exe")
         if not exe:
@@ -720,6 +763,9 @@ class Receivers:
                 self.jobs.put((self._report, ()))
         elif a == "allow-firewall":
             threading.Thread(target=self.allow_firewall, daemon=True).start()
+        elif a == "start-bonjour":
+            if not self.bonjour_starting:
+                threading.Thread(target=self.start_bonjour, daemon=True).start()
         elif a == "fetch":
             if msg.get("name") in ("uxplay", "scrcpy"):
                 self.tools.fetch(msg["name"])
