@@ -4,6 +4,7 @@ Each release's notes on GitHub show its section from this file. Add one for ever
 
 ## 1.2.9
 
+- **Lighter:** the app sets aside about 370 MB less memory (on a 12-thread CPU; more on bigger CPUs) and runs 11 fewer threads. A math library it loads reserved 32 MB for each CPU thread, though the app never used it.
 - **Updates:** Settings no longer flickers while an update downloads. This shows from the next update on, since the version doing the downloading is the one already installed.
 - **Wireless:** fixes phones that couldn't open the link ("This site can't be reached", ERR_TOO_MANY_RETRIES) on PCs with VMware, Hyper-V, Docker or other server programs. Such a program could take the app's port, so phones reached it instead of SCraMic Share. Now the app keeps its ports to itself, and moves to a free port when one is taken. The QR code follows.
 - **The app checks itself:** the Wireless screen now says what's wrong, and how to fix it, when:

@@ -7,6 +7,11 @@ import ctypes
 import os
 import sys
 
+# numpy's math library (OpenBLAS) sets aside about 32 MB for each CPU thread as soon as numpy loads:
+# 380 MB on a 12-thread CPU. The app only copies pixels with numpy, so one thread is all it needs.
+# This must happen before anything imports numpy.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
 if "--rename-mic" in sys.argv:       # the installed exe, restarted with admin rights just for this
     import vdevices
     vdevices.rename_mic_command()
