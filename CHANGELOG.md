@@ -2,6 +2,16 @@
 
 Each release's notes on GitHub show its section from this file. Add one for every new version, headed `## x.y.z`.
 
+## 1.2.8
+
+- **Wireless:** fixes phones that couldn't open the link ("This site can't be reached", ERR_TOO_MANY_RETRIES) on PCs with VMware, Hyper-V, Docker or other server programs. Such a program could take the app's port, so phones reached it instead of SCraMic Share. Now the app keeps its ports to itself, and moves to a free port when one is taken. The QR code follows.
+- **The app checks itself:** the Wireless screen now says what's wrong, and how to fix it, when:
+  - another program answers on the app's port
+  - a phone reached this PC but its connection kept failing
+  - a phone opened the link with http:// instead of https://
+  - no phone has reached this PC after a minute: same WiFi, guest WiFi and router isolation, mobile data, VPN
+- **Error log:** Settings now has **Copy error log** and **Open log folder**. If something doesn't work, paste the log in a message to the developer. It notes app starts, ports, phones connecting, connection problems and errors. It never includes the phone link's key.
+
 ## 1.2.7
 
 - **iPhone battery:** the PC app now shows an iPhone's battery and whether it's charging, over WiFi too. iPhone browsers don't share the battery, so the app asks the iPhone through Apple's iPhone service (from the Apple Devices app or iTunes).

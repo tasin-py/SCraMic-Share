@@ -25,13 +25,17 @@ import qrcode
 import qrcode.image.svg
 from aiohttp import WSMsgType, web
 
+import netcheck
+import ports
+import tlswatch
 import updates
+from applog import log
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 DATA = Path(os.environ.get("APPDATA", str(Path.home()))) / "SCraMicShare"
-PC_PORT = 47800
-PHONE_PORT = 47801
+PC_PORT = 47800             # the usual ports. If one is taken, the app moves to a free one (see ports.py),
+PHONE_PORT = 47801          # and these are set to the ports it really got
 PHONE_LOCAL_PORT = 47802
 
 ALLOWED_LINKS = (
@@ -139,6 +143,14 @@ def ensure_cert(ips):
     return crt, key
 
 
+def cert_fingerprint(crt):
+    from cryptography import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    import hashlib
+    der = x509.load_pem_x509_certificate(crt.read_bytes()).public_bytes(Encoding.DER)
+    return hashlib.sha256(der).hexdigest()
+
+
 def phone_addresses(ips=None):
     """The phone site's address on each of this PC's networks. The first is the one the QR code shows."""
     ips = (all_ips() if ips is None else ips) or ["127.0.0.1"]
@@ -171,6 +183,7 @@ class Hub:
         self.batt_fast_until = 0.0           # ...and every second until then
         self.ios_setup_stop = None           # the running "Show Charge Percentage" guide, if any
         self.ios_setup = None                # starts or stops it
+        self.self_check = None               # async: is it really this app that phones reach? (Server.self_check)
 
     async def send(self, ws, msg):
         if ws is not None and not ws.closed:
@@ -223,6 +236,8 @@ def build_app(hub, role_default, info, live=None):
         else:
             old, hub.phone = hub.phone, ws
             hub.phone_info = {"ua": request.headers.get("User-Agent", ""), "ip": request.remote}
+            log.info("Phone connected from %s%s: %s", request.remote, " (cable)" if request.query.get("wired") else "",
+                     hub.phone_info["ua"][:160])
             if old is not None:   # a newer phone tab takes over
                 await hub.send(old, {"t": "replaced"})
                 if not old.closed:
@@ -259,8 +274,18 @@ def build_app(hub, role_default, info, live=None):
                         hub.ios_setup(msg.get("a") == "start")
                     continue
                 if role == "pc" and msg.get("t") == "allow-app-firewall":
-                    import netcheck, vdevices
+                    import vdevices
+                    log.info("Allow through Windows Firewall clicked")
                     netcheck.allow_in_windows_firewall(vdevices.run_elevated)
+                    continue
+                if role == "pc" and msg.get("t") == "log-copy":
+                    import applog
+                    n = await asyncio.get_running_loop().run_in_executor(None, applog.copy)
+                    await hub.send(hub.pc, {"t": "log-copied", "n": n})
+                    continue
+                if role == "pc" and msg.get("t") == "log-open":
+                    import applog
+                    applog.show()
                     continue
                 if role == "pc" and str(msg.get("t", "")).startswith("wired"):
                     if hub.wired:
@@ -290,6 +315,7 @@ def build_app(hub, role_default, info, live=None):
             if role == "pc" and hub.pc is ws:
                 hub.pc = None
             elif role == "phone" and hub.phone is ws:
+                log.info("Phone at %s disconnected", request.remote)
                 hub.phone = None
                 hub.phone_info = {}
             await hub.status()
@@ -306,11 +332,22 @@ def build_app(hub, role_default, info, live=None):
         return web.json_response(info)
 
     async def api_net(request):
-        import netcheck
         ip = request.query.get("ip") or info["ip"]
         if ip not in all_ips():   # only this PC's own addresses
             ip = info["ip"]
-        return web.json_response(await asyncio.get_running_loop().run_in_executor(None, netcheck.check, ip))
+        checking = asyncio.get_running_loop().run_in_executor(None, netcheck.check, ip)
+        me = await hub.self_check(ip) if hub.self_check else {"state": "ok"}
+        n = await checking
+        n.update(self=me, seen=tlswatch.report(), port=PHONE_PORT)
+        if n["windowsBlocks"] or n["firewalls"]:
+            log.info("Wireless check for %s: network %r is %s, Windows Firewall %s, other firewalls: %s",
+                     ip, n["network"], n["category"] or "?", "blocks" if n["windowsBlocks"] else "allows",
+                     ", ".join(n["firewalls"]) or "none")
+        return web.json_response(n)
+
+    async def api_seen(request):
+        # Asked every few seconds while the Wireless screen waits for a phone: cheap, no PowerShell.
+        return web.json_response({"seen": tlswatch.report(), "port": PHONE_PORT})
 
     async def api_qr(request):
         text = request.query.get("text", "")[:300] or info["url"]
@@ -432,6 +469,7 @@ def build_app(hub, role_default, info, live=None):
         app.router.add_get("/api/info", api_info)
         app.router.add_get("/api/qr.svg", api_qr)
         app.router.add_get("/api/net", api_net)
+        app.router.add_get("/api/seen", api_seen)
         app.router.add_get("/api/wired", api_wired)
         app.router.add_get("/api/update", api_update)
         app.router.add_get("/api/version", api_version)
@@ -451,6 +489,12 @@ class Server:
         self.info = phone_addresses(self.ips)
         self.ready = threading.Event()
         self.error = None
+        self.fingerprint = ""      # the phone site's certificate, to know it's this app that answers
+        self.phone_site = None
+        self.moves = 0             # times the phone site moved because another program answered on its port
+        self.checked = {}          # ip -> last self-check result
+        self.checking = None       # asyncio.Lock, made on the server's loop
+        self.notify = lambda msg: None
 
     def start(self):
         threading.Thread(target=self._run, daemon=True, name="server").start()
@@ -470,24 +514,42 @@ class Server:
         self.loop.run_forever()
 
     async def _serve(self):
+        global PC_PORT, PHONE_PORT, PHONE_LOCAL_PORT
+        asyncio.get_running_loop().set_exception_handler(self._loop_error)
+        tlswatch.install()
+        tlswatch.ignore.update(self.ips)
         crt, key = ensure_cert(self.ips)
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ctx.load_cert_chain(crt, key)
+        self.ctx = ctx
+        self.fingerprint = cert_fingerprint(crt)
 
         pc_runner = web.AppRunner(build_app(self.hub, "pc", self.info), access_log=None)
         phone_runner = web.AppRunner(build_app(self.hub, "phone", self.info, self.live), access_log=None)
         await pc_runner.setup()
         await phone_runner.setup()
-        await web.TCPSite(pc_runner, "127.0.0.1", PC_PORT).start()
-        await web.TCPSite(phone_runner, "0.0.0.0", PHONE_PORT, ssl_context=ctx).start()
+        self.phone_runner = phone_runner
+        # Each port is claimed for this app alone; a taken one is swapped for a free one.
+        sock, PC_PORT = ports.listen("pc", "127.0.0.1", PC_PORT)
+        await web.SockSite(pc_runner, sock).start()
+        sock, PHONE_PORT = ports.listen("phone", "0.0.0.0", PHONE_PORT)
+        self.phone_site = web.SockSite(phone_runner, sock, ssl_context=ctx)
+        await self.phone_site.start()
         # Plain-HTTP phone site on this PC only. Phones reach it through USB port
         # forwarding (wired mode), where "localhost" already counts as secure.
-        await web.TCPSite(phone_runner, "127.0.0.1", PHONE_LOCAL_PORT).start()
+        sock, PHONE_LOCAL_PORT = ports.listen("local", "127.0.0.1", PHONE_LOCAL_PORT)
+        await web.SockSite(phone_runner, sock).start()
+        self.info.update(phone_addresses(self.ips))
+        log.info("Addresses: %s. Ports: app %s, phone %s, cable %s",
+                 ", ".join(self.ips) or "none", PC_PORT, PHONE_PORT, PHONE_LOCAL_PORT)
+        self.hub.self_check = self.self_check
 
         from wired import Wired
         def notify(msg):   # called from the wired thread
             self.loop.call_soon_threadsafe(lambda: asyncio.ensure_future(self.hub.send(self.hub.pc, msg)))
         self.hub.wired = Wired(DATA, PHONE_LOCAL_PORT, TOKEN, notify, all_ips)
+        self.notify = notify
+        asyncio.ensure_future(self.self_check())   # right away, so a clash shows in the log even if nobody looks
 
         from tools import Tools
         from receivers import Receivers
@@ -560,6 +622,63 @@ class Server:
             except Exception:
                 progress("end", "error")
         threading.Thread(target=run, daemon=True, name="ios-setup").start()
+
+    def _loop_error(self, loop, context):
+        exc = context.get("exception")
+        if isinstance(exc, (ConnectionError, TimeoutError, ssl.SSLError)):
+            return   # a phone or browser dropping a connection: normal, and tlswatch notes what matters
+        log.error("Server error: %s", context.get("message", ""), exc_info=exc)
+
+    async def self_check(self, ip=None):
+        """Is it really this app that phones reach? Connects to this PC's own address the way a phone does.
+        If another program answers on the phone site's port, the site moves to a free port (twice at most per
+        start), and the PC page is told, so it shows the new QR code. Returns what the Wireless screen shows."""
+        if self.checking is None:
+            self.checking = asyncio.Lock()
+        async with self.checking:   # the start-up check and the Wireless screen's must not both move the site
+            return await self._self_check(ip)
+
+    async def _self_check(self, ip):
+        global PHONE_PORT
+        loop = asyncio.get_running_loop()
+        ips = [ip] if ip else all_ips()
+        tlswatch.ignore.update(all_ips())
+        for i in ips:
+            if i.startswith("127."):
+                continue
+            state = await loop.run_in_executor(None, netcheck.answers, i, PHONE_PORT, self.fingerprint)
+            if state in ("ok", "unknown"):
+                if self.checked.get(i, {}).get("state") not in (None, "ok"):
+                    log.info("Self-check: %s:%s answers as this app again", i, PHONE_PORT)
+                self.checked[i] = {"state": "ok"}
+                continue
+            owner = await loop.run_in_executor(None, ports.owner, PHONE_PORT)
+            log.warning("Self-check: on %s:%s %s%s", i, PHONE_PORT,
+                        "another program answers instead of this app" if state == "other" else "nothing answers",
+                        f" (port also used by {owner})" if owner else "")
+            if self.moves < 2:
+                self.moves += 1
+                old = PHONE_PORT
+                try:
+                    sock, port = await loop.run_in_executor(None, lambda: ports.listen(
+                        "phone", "0.0.0.0", PHONE_PORT, avoid={PHONE_PORT}))
+                except OSError as e:
+                    log.error("Couldn't move the phone site: %s", e)
+                else:
+                    await self.phone_site.stop()
+                    self.phone_site = web.SockSite(self.phone_runner, sock, ssl_context=self.ctx)
+                    await self.phone_site.start()
+                    PHONE_PORT = port
+                    self.info.update(phone_addresses())
+                    log.warning("Moved the phone site from port %s to %s", old, port)
+                    self.notify({"t": "phone-port", "port": port, "old": old})
+                    state = await loop.run_in_executor(None, netcheck.answers, i, PHONE_PORT, self.fingerprint)
+                    if state in ("ok", "unknown"):
+                        self.checked[i] = {"state": "ok", "moved": old}
+                        continue
+                    log.warning("Self-check after moving: %s:%s still answers as '%s'", i, PHONE_PORT, state)
+            self.checked[i] = {"state": state, "owner": owner, "ip": i, "port": PHONE_PORT}
+        return self.checked.get(ip, {"state": "ok"}) if ip else None
 
     @property
     def pc_url(self):

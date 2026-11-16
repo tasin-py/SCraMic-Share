@@ -143,7 +143,7 @@ def self_check(report):
         os._exit(code)
 
     try:
-        for name in ("control", "iosbattery", "netcheck", "receivers", "rotateview", "teacher", "tools", "unitycam", "updates", "vdevices", "wired",
+        for name in ("applog", "control", "iosbattery", "netcheck", "ports", "receivers", "tlswatch", "rotateview", "teacher", "tools", "unitycam", "updates", "vdevices", "wired",
                      "cryptography", "mss", "numpy", "PIL.Image", "qrcode.image.svg"):
             importlib.import_module(name)
         for path in ("web/pc/index.html", "web/pc/pc.js", "web/phone/index.html", "web/phone/teacher.html",
@@ -185,6 +185,9 @@ def main():
         return self_check(sys.argv[sys.argv.index("--check") + 1])
     if already_open():
         return 0
+    import applog
+    import updates
+    applog.start(updates.VERSION)
     try:   # own taskbar icon/group instead of python.exe's
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Tasin.SCraMicShare")
     except Exception:
@@ -199,10 +202,11 @@ def main():
     server = Server(live=teacher.live)
     try:
         server.start()
-    except OSError as e:
+    except Exception as e:
+        applog.log.critical("The connection server didn't start", exc_info=e)
         QMessageBox.critical(None, APP_NAME,
                              f"SCraMic Share couldn't start its connection server.\n\n{e}\n\n"
-                             "Is SCraMic Share already open?")
+                             f"Details are in the error log:\n{applog.FILE}")
         return 1
 
     win = Window(server.pc_url)

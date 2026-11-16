@@ -54,6 +54,33 @@ def check(ip):
     return out
 
 
+def answers(ip, port, fingerprint):
+    """Is it really this app that answers on this address? Connects the way a phone does and compares the
+    certificate with the app's own. "ok"; "other" (another program answers: phones reach it instead);
+    "none" (nothing answers). Connecting to the PC's own address doesn't go through the firewall, so a
+    firewall doesn't change the answer."""
+    import hashlib
+    import socket
+    import ssl
+    import warnings
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        with socket.create_connection((ip, port), timeout=4) as s:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with ctx.wrap_socket(s) as t:
+                    der = t.getpeercert(binary_form=True)
+    except ConnectionRefusedError:
+        return "none"
+    except (ssl.SSLError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+        return "other"     # something took the connection, then didn't talk like this app
+    except OSError:
+        return "unknown"   # the address isn't usable right now (adapter off, ...): nothing to conclude
+    return "ok" if der and hashlib.sha256(der).hexdigest() == fingerprint else "other"
+
+
 def allow_in_windows_firewall(run_elevated):
     """Lets this app through Windows Firewall on every network. Windows asks for approval first.
     Clears this app's old inbound rules too: clicking Cancel on Windows' own question leaves a Block rule,

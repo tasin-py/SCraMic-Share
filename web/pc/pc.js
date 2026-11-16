@@ -7,7 +7,7 @@ let current = 'home';
 function show(name) {
   current = name;
   screens.forEach(s => $(s).classList.toggle('hidden', s !== name));
-  if (name === 'wireless') loadPairing();   // the QR code is always ready on this screen
+  if (name === 'wireless') { waitSince = 0; loadPairing(); }   // the QR code is always ready on this screen
   if (name === 'wired') send({ t: 'wired-watch', on: true });
 }
 
@@ -42,6 +42,8 @@ fetch('/api/version').then(r => r.json()).then(v => {
   $('uninstallApp').classList.toggle('hidden', !v.can_uninstall);   // only the installed app has an uninstaller
 }).catch(() => {});
 $('uninstallApp').onclick = () => openModal('uninstallAsk');
+$('logCopy').onclick = () => send({ t: 'log-copy' });
+$('logOpen').onclick = () => send({ t: 'log-open' });
 $('uninstallYes').onclick = () => {
   $('uninstallYes').disabled = true;
   $('uninstallYes').textContent = 'Closing…';
@@ -141,6 +143,8 @@ async function loadPairing() {
     $('othersWrap').classList.toggle('hidden', all.length < 2);
     await showPairUrl(all.includes(pairUrl) ? pairUrl : info.url);
     checkNetwork();
+    clearTimeout(seenTimer);
+    seenTimer = setTimeout(watchSeen, 5000);
   } catch (e) { setTimeout(loadPairing, 1000); }
 }
 
@@ -162,12 +166,54 @@ function antivirusAdvice(n, app = 'SCraMic Share') {
       (n.category === 'Public' ? `, because ${net} is set to <b>Public</b>` : '') + `.</p><p>${steps(esc(name), net).replace(/SCraMic Share/g, app)}</p>`;
   });
 }
-let netTimer = null;
+// The app also checks itself: is it really this app that answers on its port? Did a phone reach this PC and fail?
+// Has no phone reached it at all? Each answer becomes advice here, with a fix button where the app can fix it.
+let netTimer = null, netState = null, seenState = [], seenTimer = null, waitSince = 0, netHtml = '';
 async function checkNetwork(again = 0) {
   clearTimeout(netTimer);
   let n;
   try { n = await (await fetch('/api/net?ip=' + encodeURIComponent(new URL(pairUrl).hostname))).json(); } catch (e) { return; }
-  const parts = antivirusAdvice(n);
+  netState = n;
+  seenState = n.seen || [];
+  renderNetWarn();
+  // After Allow: look again until the rule is there, for about a minute
+  if (again && n.windowsBlocks && again < 15) netTimer = setTimeout(() => checkNetwork(again + 1), 4000);
+}
+function selfAdvice(me) {
+  if (!me || me.state === 'ok') return [];
+  const who = me.owner ? ` (<b>${esc(me.owner)}</b>)` : '';
+  if (me.state === 'other') return [`<p><b>Another program on this PC answers on SCraMic Share's port</b>${who}, so your phone reaches that program instead of this app. Programs for virtual machines and servers (VMware, Hyper-V, Docker, port forwarding) can do this.</p>
+    <p>The app already tried other ports. Close that program, or restart this PC, then open SCraMic Share again.</p>`];
+  return [`<p><b>This app can't be reached on ${esc(me.ip || '')}, even from this PC.</b> Something on this PC is in the way: a VPN, a network filter, or a virtual-machine program. Turn it off for a moment, or try another address below the QR code.</p>`];
+}
+function seenAdvice() {
+  const out = [];
+  for (const d of seenState) {
+    if (d.working) continue;   // its last try got in
+    if (d.failAgo === null || d.failAgo > 300) continue;
+    const ip = `<b>${esc(d.ip)}</b>`;
+    if (d.kind === 'http') out.push(`<p>Your phone (${ip}) opened the link with <b>http://</b>. Scan the QR code again: the link must start with <b>https://</b>.</p>`);
+    else if (d.kind === 'cert') {
+      if (d.fails >= 4) out.push(`<p>Your phone (${ip}) stops at the <b>"Not private"</b> page. That's expected: tap <b>Advanced → Proceed</b> (Android) or <b>Show Details → visit this website</b> (iPhone).</p>`);
+    } else out.push(`<p><b>A phone (${ip}) reached this PC, but its connection kept failing.</b> Try these, one at a time:</p>
+      <ul><li>Open the link in another browser on the phone (Firefox or Samsung Internet).</li>
+      <li>Turn off any VPN, ad blocker or "secure DNS" app on the phone.</li>
+      <li>Turn off this PC's VPN or network filter for a moment, if it has one.</li></ul>
+      <p class="small">What the phone's connection said: ${esc(d.error)}</p>`);
+  }
+  return out;
+}
+function waitAdvice() {
+  if (phoneConnected || !waitSince || Date.now() - waitSince < 60000) return [];
+  if (seenState.length) return [];   // a phone got here: its own advice says more
+  const more = $('othersWrap').classList.contains('hidden') ? '' : '<li>Try another address: <b>Doesn\'t open? Try another address</b> under the QR code.</li>';
+  return [`<p><b>No phone has reached this PC yet.</b> If the link doesn't open on your phone:</p>
+    <ul><li>Put the phone on the <b>same WiFi</b> as this PC, not a guest WiFi. Some routers keep devices apart ("AP isolation" or "client isolation"): turn that off in the router, or use Wired mode.</li>
+    <li>Turn off <b>mobile data</b> and any <b>VPN</b> on the phone.</li>${more}</ul>`];
+}
+function renderNetWarn() {
+  const n = netState || { firewalls: [], windowsBlocks: false };
+  const parts = [...selfAdvice(n.self), ...seenAdvice(), ...antivirusAdvice(n)];
   if (n.windowsBlocks) {
     parts.push(`<p><b>Windows Firewall</b> is blocking your phone.</p>
       <button class="btn" id="netAllow">Allow through Windows Firewall</button><p class="small">Windows asks for permission.</p>`);
@@ -175,17 +221,33 @@ async function checkNetwork(again = 0) {
   if (n.firewalls.length && n.category === 'Public') {
     parts.push(`<p class="small">Only do this on your own WiFi. On a café or hotel WiFi, use Wired mode instead.</p>`);
   }
+  parts.push(...waitAdvice());
+  const html = parts.length ? `<div class="net-head">If your phone can't connect</div>${parts.join('')}` : '';
   const box = $('netWarn');
-  box.innerHTML = parts.length ? `<div class="net-head">If your phone can't connect</div>${parts.join('')}` : '';
+  if (html !== netHtml) {   // the same advice again: leave it, so a button that was clicked keeps its state
+    netHtml = html;
+    box.innerHTML = html;
+    if ($('netAllow')) $('netAllow').onclick = () => {
+      $('netAllow').disabled = true;
+      $('netAllow').textContent = 'Approve in Windows…';
+      send({ t: 'allow-app-firewall' });
+      netTimer = setTimeout(() => checkNetwork(1), 4000);
+    };
+  }
   box.classList.toggle('hidden', !parts.length || phoneConnected);
-  if ($('netAllow')) $('netAllow').onclick = () => {
-    $('netAllow').disabled = true;
-    $('netAllow').textContent = 'Approve in Windows…';
-    send({ t: 'allow-app-firewall' });
-    netTimer = setTimeout(() => checkNetwork(1), 4000);
-  };
-  // After Allow: look again until the rule is there, for about a minute
-  if (again && n.windowsBlocks && again < 15) netTimer = setTimeout(() => checkNetwork(again + 1), 4000);
+}
+// While this screen waits for a phone: which phones reached the PC, every few seconds (cheap: no PowerShell).
+async function watchSeen() {
+  clearTimeout(seenTimer);
+  if (current !== 'wireless') { waitSince = 0; return; }
+  if (!waitSince) waitSince = Date.now();
+  try {
+    const r = await (await fetch('/api/seen')).json();
+    seenState = r.seen || [];
+    if (pairUrl && new URL(pairUrl).port !== String(r.port)) return loadPairing();   // the app moved to another port
+    renderNetWarn();
+  } catch (e) { /* try again next time */ }
+  seenTimer = setTimeout(watchSeen, 5000);
 }
 
 // ---------------------------------------------------------------- socket
@@ -357,6 +419,13 @@ new MutationObserver(() => {
 function handle(m) {
   switch (m.t) {
     case 'update-state': renderUpdate(m); break;
+    case 'phone-port':   // another program answered on the phone site's port, so the app moved it
+      if (current === 'wireless') loadPairing();
+      toast('Another program was using the phone link\'s port. The QR code changed: scan it again.');
+      break;
+    case 'log-copied':
+      toast(m.n ? 'Error log copied. Paste it in a message to send it.' : "Couldn't copy the error log. Use Open log folder instead.");
+      break;
     case 'peer':
       phoneIsIos = !!(m.connected && m.info && /iPhone|iPad|Macintosh.*Mobile/.test(m.info.ua || ''));
       setPhone(m.connected, m.info);

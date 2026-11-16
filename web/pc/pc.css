@@ -250,3 +250,11 @@ h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 6px
 .ios-done .batt .batt-ic { width: 30px; height: 30px; }
 .ios-done p { margin: 8px 0 0; color: #cfcfcf; font-size: 13.5px; }
 #iosStore, #iosRetry { margin-top: 10px; }
+
+/* ---------- error log (Settings), and the Wireless screen's lists of things to try ---------- */
+.log-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 12px; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+.log-row span { width: 100%; text-align: center; }
+.net-warn ul { margin: 6px 0 0; padding-left: 18px; }
+.net-warn li { margin-top: 3px; }
+.log-row .link-btn { margin-top: 0; }
+.log-row .link-btn:hover { color: var(--text); }
