@@ -2,6 +2,10 @@
 
 Each release's notes on GitHub show its section from this file. Add one for every new version, headed `## x.y.z`.
 
+## 1.2.9
+
+- **Updates:** Settings no longer flickers while an update downloads. This shows from the next update on, since the version doing the downloading is the one already installed.
+
 ## 1.2.8
 
 - **Wireless:** fixes phones that couldn't open the link ("This site can't be reached", ERR_TOO_MANY_RETRIES) on PCs with VMware, Hyper-V, Docker or other server programs. Such a program could take the app's port, so phones reached it instead of SCraMic Share. Now the app keeps its ports to itself, and moves to a free port when one is taken. The QR code follows.

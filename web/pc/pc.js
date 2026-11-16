@@ -97,9 +97,13 @@ $('updateYes').onclick = () => {
 };
 function renderUpdate(m) {
   const btn = $('installUpdate');
+  // Only what changed is touched, and the button keeps one width: a button that grows and shrinks with each
+  // percent made the whole Settings sheet lay itself out again ~100 times, which showed as flickering.
+  const set = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  btn.classList.toggle('busy', m.phase === 'download' || m.phase === 'install');
   if (m.phase === 'download') {
-    btn.textContent = `Downloading… ${m.percent}%`;
-    $('updateMsg').textContent = "You can keep using the app while it downloads.";
+    set(btn, `Downloading… ${m.percent}%`);
+    set($('updateMsg'), "You can keep using the app while it downloads.");
   } else if (m.phase === 'install') {
     btn.textContent = 'Installing…';
     $('updateMsg').textContent = 'SCraMic Share will close now and reopen when the update is done.';
